@@ -2,6 +2,7 @@
   "name": "glotmaxxing",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
