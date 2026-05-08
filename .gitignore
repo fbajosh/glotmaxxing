@@ -2,6 +2,6 @@ plan.md
 node_modules/
 .DS_Store
 en_example.md
-es_example.md
+fn_example.md
 en_template.md
-es_template.md
+fn_template.md

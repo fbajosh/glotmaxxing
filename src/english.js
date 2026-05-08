@@ -1,4 +1,4 @@
-import { esc, title } from "./html.js";
+import { esc, title, wiki } from "./html.js";
 
 export function englishView(entry, targetLanguage, preferredLanguages) {
   const availableLanguages = preferredLanguages.filter((language) => hasTranslations(entry, language));
@@ -43,7 +43,7 @@ function translationTables(entry, language) {
         <thead><tr><th>${esc(title(group.pos))}</th><th>${esc(language)}</th></tr></thead>
         <tbody>
           ${rows.map(([gloss, translations]) => `
-            <tr><td>${esc(gloss)}</td><td>${translations.map(esc).join(", ")}</td></tr>
+            <tr><td>${wiki(gloss)}</td><td>${translations.map(wiki).join(", ")}</td></tr>
           `).join("")}
         </tbody>
       </table>
@@ -74,7 +74,7 @@ function etymology(entry) {
     <details class="entry-section etymology">
       <summary>Etymology</summary>
       <ol>
-        ${entry.etymologyNotes.map((note) => `<li>${note.split("\n\n").map((paragraph) => `<p>${esc(paragraph)}</p>`).join("")}</li>`).join("")}
+        ${entry.etymologyNotes.map((note) => `<li>${note.split("\n\n").map((paragraph) => `<p>${wiki(paragraph)}</p>`).join("")}</li>`).join("")}
       </ol>
     </details>
   `;

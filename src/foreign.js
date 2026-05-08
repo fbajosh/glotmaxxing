@@ -1,15 +1,14 @@
-import { esc, title } from "./html.js";
+import { esc, title, wiki } from "./html.js?v=missing-search-20260508";
 
 export function foreignView(result) {
   return `
     <article>
       <h1>${esc(result.entry.term)}</h1>
-      <p class="language">${esc(result.entry.language)}</p>
       ${result.notice ? `<p class="notice">${esc(result.notice)}</p>` : ""}
-      ${pronunciation(result.entry)}
+      ${redirectedFrom(result.entry)}
       ${parts(result.entry.partsOfSpeech)}
-      ${nextLanguage(result.nextLanguage)}
       ${etymology(result.entry)}
+      ${nextLanguage(result.nextLanguage)}
     </article>
   `;
 }
@@ -19,8 +18,10 @@ function parts(items) {
 
   return items.map((part) => `
     <section class="part">
-      <h3>${esc(title(part.pos))}${part.gender ? ` <span>${esc(part.gender)}</span>` : ""}</h3>
-      <ol>${definitions(part).map((definition) => `<li>${esc(definition)}</li>`).join("")}</ol>
+      <h3>${esc(title(part.pos))}</h3>
+      ${part.formOf?.label ? `<p class="form-of">${wiki(part.formOf.label)}</p>` : ""}
+      <ol>${definitions(part).map((definition) => `<li>${wiki(definition)}</li>`).join("")}</ol>
+      ${alternateForms(part.alternateForms)}
     </section>
   `).join("");
 }
@@ -33,10 +34,24 @@ function definitions(part) {
   return part.definitions;
 }
 
-function pronunciation(entry) {
-  return entry.pronunciations?.length
-    ? `<p class="pronunciation">${entry.pronunciations.map(esc).join(", ")}</p>`
-    : "";
+function redirectedFrom(entry) {
+  if (!entry.redirectedFrom) return "";
+  return `<p class="redirected-from">redirected from ${differenceText(entry.redirectedFrom, entry.term)}</p>`;
+}
+
+function differenceText(source, target) {
+  const sourceLetters = Array.from(source);
+  const targetLetters = Array.from(target);
+
+  return sourceLetters.map((letter, index) => {
+    const rendered = esc(letter);
+    return letter === targetLetters[index] ? rendered : `<u>${rendered}</u>`;
+  }).join("");
+}
+
+function alternateForms(items) {
+  if (!items?.length) return "";
+  return `<p class="alternate-forms">Alternate forms: ${items.map(wiki).join(", ")}</p>`;
 }
 
 function nextLanguage(language) {
@@ -54,7 +69,7 @@ function etymology(entry) {
     <details class="entry-section etymology">
       <summary>Etymology</summary>
       <ol>
-        ${entry.etymologyNotes.map((note) => `<li>${note.split("\n\n").map((paragraph) => `<p>${esc(paragraph)}</p>`).join("")}</li>`).join("")}
+        ${entry.etymologyNotes.map((note) => `<li>${note.split("\n\n").map((paragraph) => `<p>${wiki(paragraph)}</p>`).join("")}</li>`).join("")}
       </ol>
     </details>
   `;

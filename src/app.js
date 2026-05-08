@@ -1,9 +1,9 @@
 import { SUPPORTED_LANGUAGES } from "./data.js";
 import { englishTarget, englishView } from "./english.js";
 import { errorView } from "./error.js";
-import { foreignView } from "./foreign.js";
+import { foreignView } from "./foreign.js?v=missing-search-20260508";
 import { icons, searchBar, esc } from "./html.js";
-import { routeWord } from "./routing.js";
+import { routeWord } from "./routing.js?v=missing-search-20260508";
 import { splashView } from "./splash.js";
 
 const SETTINGS_KEY = "glotmaxxing.settings";

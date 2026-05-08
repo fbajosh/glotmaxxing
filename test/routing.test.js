@@ -6,7 +6,7 @@ const PREFERRED_LANGUAGES = ["Spanish", "Portuguese", "French", "Italian"];
 const WORD_POOLS = {
   noun: ["house", "cloud", "water", "book", "city", "hand", "river", "road"],
   verb: ["run", "eat", "sleep", "write", "read", "walk", "build", "carry"],
-  adjective: ["good", "bad", "old", "new", "small", "large", "cold", "clear"],
+  adjective: ["good", "bad", "old", "new", "small", "cold", "clear"],
   adverb: ["well", "here", "there", "often", "always", "never", "soon", "then"]
 };
 

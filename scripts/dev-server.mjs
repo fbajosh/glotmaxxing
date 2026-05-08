@@ -13,6 +13,10 @@ const types = {
   ".svg": "image/svg+xml",
   ".webmanifest": "application/manifest+json; charset=utf-8"
 };
+const headers = (file) => ({
+  "cache-control": "no-store",
+  "content-type": types[extname(file)] || "application/octet-stream"
+});
 
 function fileFor(url) {
   const path = normalize(decodeURIComponent(new URL(url, "http://localhost").pathname));
@@ -44,7 +48,7 @@ function server() {
       file = join(file, "index.html");
     }
 
-    response.writeHead(200, { "content-type": types[extname(file)] || "application/octet-stream" });
+    response.writeHead(200, headers(file));
     if (request.method === "HEAD") response.end();
     else createReadStream(file).pipe(response);
   });

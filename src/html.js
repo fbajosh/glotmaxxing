@@ -21,6 +21,22 @@ export function esc(value) {
     .replaceAll("'", "&#039;");
 }
 
+export function wiki(value) {
+  let linked = false;
+
+  return String(value ?? "").split(/(\u0001|\u0002)/).map((part) => {
+    if (part === "\u0001") {
+      linked = true;
+      return "";
+    }
+    if (part === "\u0002") {
+      linked = false;
+      return "";
+    }
+    return linked ? `<em>${esc(part)}</em>` : esc(part);
+  }).join("");
+}
+
 export function title(value) {
   return String(value || "").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

@@ -1,6 +1,6 @@
 import { englishSignals, hasEnglishTranslationSubpageReference, parseEnglishEntry, parseEnglishTranslationGroups } from "./english-parser.js";
-import { parseForeignEntry } from "./foreign-parser.js";
-import { fetchWikitext, hasLanguageSection } from "./wiktionary.js";
+import { resolveForeignEntry } from "./foreign-parser.js?v=missing-search-20260508";
+import { expandTemplates, fetchWikitext, hasLanguageSection, isMissingTitle, searchTitles } from "./wiktionary.js?v=missing-search-20260508";
 
 export const ENGLISH_RULES = {
   strongDefinitionMinimum: 3,
@@ -15,17 +15,20 @@ export function classifyEnglish(signals) {
   return "minimal";
 }
 
-export async function routeWord({ query, preferredLanguages, selectedLanguage }) {
-  const term = query.trim();
-  const pageWikitext = await fetchWikitext(term);
+export async function routeWord({ query, preferredLanguages, selectedLanguage, tools = {} }) {
+  const api = { fetchWikitext, expandTemplates, searchTitles, ...tools };
+  const requestedTerm = query.trim();
+  const lookup = await lookupWikitext(requestedTerm, preferredLanguages, api);
+  const term = lookup.term;
+  const pageWikitext = lookup.wikitext;
 
   const englishPresence = classifyEnglish(englishSignals(pageWikitext));
 
-  if (ENGLISH_RULES.routeToEnglish.has(englishPresence)) {
+  if (!lookup.redirectedFrom && ENGLISH_RULES.routeToEnglish.has(englishPresence)) {
     const mainTranslationGroups = parseEnglishTranslationGroups(pageWikitext);
     const needsTranslationSubpage = hasEnglishTranslationSubpageReference(pageWikitext);
     const translationSources = needsTranslationSubpage
-      ? [pageWikitext, await fetchWikitext(`${term}/translations`)]
+      ? [pageWikitext, await api.fetchWikitext(`${term}/translations`)]
       : [pageWikitext];
 
     return {
@@ -49,8 +52,43 @@ export async function routeWord({ query, preferredLanguages, selectedLanguage })
     kind: "entry",
     flow: "foreign",
     englishPresence,
-    entry: parseForeignEntry(term, pageWikitext, selected),
+    entry: redirectedEntry(
+      await resolveForeignEntry(term, pageWikitext, selected, api),
+      lookup.redirectedFrom
+    ),
     availableLanguages,
     nextLanguage: availableLanguages[availableLanguages.indexOf(selected) + 1] || ""
   };
+}
+
+async function lookupWikitext(term, preferredLanguages, api) {
+  try {
+    return { term, wikitext: await api.fetchWikitext(term), redirectedFrom: "" };
+  } catch (error) {
+    if (!isMissingTitle(error)) throw error;
+  }
+
+  const titles = await api.searchTitles(term, 8);
+  for (const title of titles) {
+    const wikitext = await candidateWikitext(title, api);
+    if (!wikitext) continue;
+    if (preferredLanguages.some((language) => hasLanguageSection(wikitext, language))) {
+      return { term: title, wikitext, redirectedFrom: term };
+    }
+  }
+
+  throw new Error("No result");
+}
+
+async function candidateWikitext(title, api) {
+  try {
+    return await api.fetchWikitext(title);
+  } catch (error) {
+    if (isMissingTitle(error)) return "";
+    throw error;
+  }
+}
+
+function redirectedEntry(entry, redirectedFrom) {
+  return redirectedFrom ? { ...entry, redirectedFrom } : entry;
 }
