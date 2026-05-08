@@ -8,14 +8,14 @@ The app is intentionally narrow: search a term, route it to the most useful Engl
 
 - Dependency-free static app
 - Live lookup through the English Wiktionary API
-- Splash page with hero, app name, and search
-- Compact word-page top bar with search and settings
+- Splash page with theme-specific hero, app name, and fixed bottom search/settings bar
+- Compact fixed bottom search/settings bar on app pages
 - Five preferred-language rows with drag reordering
 - Editable routing rules in `src/routing.js`
 - English parser in `src/english-parser.js`
 - Foreign parser in `src/foreign-parser.js`
 - Shared Wiktionary download/helpers in `src/wiktionary.js`
-- One handled user-facing error page: `No sense-level translations available`
+- Explicit handled user-facing error pages for known lookup failures
 
 ## Lookup Flow
 
@@ -39,6 +39,8 @@ Known user-facing errors live in `src/error.js`. At the moment, the only defined
 
 `No sense-level translations available`
 
+`No result`
+
 All other failures should remain visible as raw errors while the app is under active development.
 
 ## Run
@@ -56,6 +58,24 @@ npm test
 ```
 
 Tests include parser fixtures and live randomized routing checks for common English nouns, verbs, adjectives, and adverbs.
+
+## Deploy
+
+GitHub Actions deploys `main` to a VM through the `production` environment.
+
+Create a GitHub Environment named `production` and add these environment secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `DEPLOY_HOST` | VM external IP or hostname |
+| `DEPLOY_USER` | SSH user on the VM |
+| `DEPLOY_SSH_KEY` | Private SSH key for `DEPLOY_USER` |
+| `DEPLOY_TARGET_DIR` | Absolute target directory on the VM |
+| `DEPLOY_SSH_PORT` | Optional SSH port; defaults to `22` when omitted |
+
+The workflow packages the static app, uploads it to `DEPLOY_TARGET_DIR`, clears existing generated files there, preserves `.htaccess`, and extracts the new files.
+
+The VM needs `tar` and SSH. Apache/Bitnami serves the deployed files from `DEPLOY_TARGET_DIR`.
 
 ## License
 

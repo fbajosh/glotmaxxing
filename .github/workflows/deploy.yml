@@ -1,0 +1,89 @@
+name: Deploy
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run tests
+        run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_TARGET_DIR: ${{ secrets.DEPLOY_TARGET_DIR }}
+      DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate deploy configuration
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_TARGET_DIR"
+
+      - name: Prepare SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Package application
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.DS_Store' \
+            -czf glotmaxxing.tar.gz \
+            index.html manifest.webmanifest public src
+
+      - name: Upload application
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_TARGET_DIR'"
+          scp -i ~/.ssh/deploy_key -P "${DEPLOY_SSH_PORT:-22}" glotmaxxing.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_TARGET_DIR/glotmaxxing.tar.gz"
+
+      - name: Publish static files
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "DEPLOY_TARGET_DIR='$DEPLOY_TARGET_DIR' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$DEPLOY_TARGET_DIR"
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name glotmaxxing.tar.gz \
+            ! -name .htaccess \
+            -exec rm -rf {} +
+          tar -xzf glotmaxxing.tar.gz
+          rm glotmaxxing.tar.gz
+          REMOTE
