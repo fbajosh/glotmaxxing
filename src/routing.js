@@ -1,6 +1,6 @@
 import { englishSignals, hasEnglishTranslationSubpageReference, parseEnglishEntry, parseEnglishTranslationGroups } from "./english-parser.js";
-import { resolveForeignEntry } from "./foreign-parser.js?v=missing-search-20260508";
-import { expandTemplates, fetchWikitext, hasLanguageSection, isMissingTitle, searchTitles } from "./wiktionary.js?v=missing-search-20260508";
+import { resolveForeignEntry } from "./foreign-parser.js?v=result-table-20260508";
+import { expandTemplates, fetchWikitext, hasLanguageSection, isMissingTitle, searchTitles } from "./wiktionary.js?v=result-table-20260508";
 
 export const ENGLISH_RULES = {
   strongDefinitionMinimum: 3,

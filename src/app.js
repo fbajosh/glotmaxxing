@@ -1,21 +1,23 @@
+import { aboutView } from "./about.js";
 import { SUPPORTED_LANGUAGES } from "./data.js";
 import { englishTarget, englishView } from "./english.js";
 import { errorView } from "./error.js";
-import { foreignView } from "./foreign.js?v=missing-search-20260508";
-import { icons, searchBar, esc } from "./html.js";
-import { routeWord } from "./routing.js?v=missing-search-20260508";
+import { foreignView } from "./foreign.js?v=result-table-20260508";
+import { searchBar, settingsButton, esc } from "./html.js";
+import { routeWord } from "./routing.js?v=result-table-20260508";
 import { splashView } from "./splash.js";
 
 const SETTINGS_KEY = "glotmaxxing.settings";
-const defaults = { languages: ["Spanish", "Portuguese", "", "", ""] };
+const defaults = { languages: ["Spanish", "Portuguese", "", "", ""], darkMode: false };
 const params = new URLSearchParams(location.search);
 const app = document.querySelector("#app");
 let dragState = null;
 let suppressClick = false;
 const state = {
   settings: loadSettings(),
-  query: params.get("q") || "",
-  selectedLanguage: params.get("tl") || "",
+  page: pageFrom(params),
+  query: pageFrom(params) ? "" : params.get("q") || "",
+  selectedLanguage: pageFrom(params) ? "" : params.get("tl") || "",
   lookup: null,
   settingsOpen: false,
   editing: null
@@ -23,13 +25,17 @@ const state = {
 
 function loadSettings() {
   const raw = localStorage.getItem(SETTINGS_KEY);
-  if (!raw) return { languages: normalizeSlots(defaults.languages) };
+  if (!raw) return { languages: normalizeSlots(defaults.languages), darkMode: defaults.darkMode };
 
   const saved = JSON.parse(raw);
   if (!Array.isArray(saved.languages)) throw new Error("Saved settings must include a languages array");
+  if (saved.darkMode !== undefined && typeof saved.darkMode !== "boolean") {
+    throw new Error("Saved dark mode setting must be a boolean");
+  }
 
   return {
-    languages: normalizeSlots(saved.languages)
+    languages: normalizeSlots(saved.languages),
+    darkMode: saved.darkMode === true
   };
 }
 
@@ -66,9 +72,17 @@ function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
 }
 
+function pageFrom(urlParams) {
+  const page = urlParams.get("page") || "";
+  if (!page) return "";
+  if (page !== "about") throw new Error(`Unsupported page: ${page}`);
+  return page;
+}
+
 function go(query, selectedLanguage = "") {
   const next = String(query || "").trim();
   if (!next) return;
+  state.page = "";
   state.query = next;
   state.selectedLanguage = selectedLanguage;
   state.lookup = null;
@@ -80,8 +94,30 @@ function go(query, selectedLanguage = "") {
   render();
 }
 
+function showPage(page) {
+  if (page !== "about") throw new Error(`Unsupported page: ${page}`);
+  state.page = page;
+  state.query = "";
+  state.selectedLanguage = "";
+  state.lookup = null;
+  state.settingsOpen = false;
+  state.editing = null;
+  history.pushState({}, "", `${location.pathname}?page=${page}`);
+  render();
+}
+
 function render() {
-  app.innerHTML = state.query ? wordView() : splashView();
+  applyTheme();
+  app.innerHTML = state.page === "about" ? pageView(aboutView()) : state.query ? wordView() : splashShell();
+}
+
+function applyTheme() {
+  document.documentElement.classList.toggle("dark", state.settings.darkMode);
+  document.body.classList.toggle("dark", state.settings.darkMode);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute(
+    "content",
+    state.settings.darkMode ? "#101614" : "#f4f7f5"
+  );
 }
 
 function wordView() {
@@ -92,10 +128,25 @@ function wordView() {
       ? loadingView(state.query)
       : resultView(lookup.result);
 
+  return pageView(content, state.query);
+}
+
+function splashShell() {
   return `
-    <header class="topbar">
-      ${searchBar(state.query)}
-      <button class="icon" type="button" data-action="settings" aria-label="Settings" title="Settings">${icons.menu}</button>
+    ${splashView({ darkMode: state.settings.darkMode })}
+    <header class="bottombar search-settings">
+      ${searchBar("")}
+      ${settingsButton()}
+    </header>
+    ${state.settingsOpen ? settingsView() : ""}
+  `;
+}
+
+function pageView(content, searchValue = "") {
+  return `
+    <header class="bottombar search-settings">
+      ${searchBar(searchValue)}
+      ${settingsButton()}
     </header>
     <main class="word">${content}</main>
     ${state.settingsOpen ? settingsView() : ""}
@@ -162,8 +213,26 @@ function noPageView(term) {
 function settingsView() {
   return `
     <div class="drawer">
-      <button class="close" type="button" data-action="close" aria-label="Close">x</button>
+      <button class="close" type="button" data-action="close" aria-label="Close">&times;</button>
+      <section class="drawer-section">
+        <h2>Theme</h2>
+      <label class="theme-toggle">
+        <span>Dark mode</span>
+        <input type="checkbox" data-action="dark-mode" ${state.settings.darkMode ? "checked" : ""}>
+      </label>
+      </section>
+      <section class="drawer-section language-section">
+        <h2>Language preferences</h2>
       <ol class="slots">${state.settings.languages.map(slotView).join("")}</ol>
+      </section>
+      <section class="drawer-section glotmaxxing-section">
+        <h2>Glotmaxxing</h2>
+        <nav class="drawer-links" aria-label="Glotmaxxing">
+          <a href="?page=about" data-action="about">About</a>
+          <a href="https://www.wiktionary.org/" target="_blank" rel="noopener noreferrer">Wiktionary</a>
+          <a href="https://github.com/fbajosh/glotmaxxing" target="_blank" rel="noopener noreferrer">Git</a>
+        </nav>
+      </section>
     </div>
   `;
 }
@@ -255,6 +324,13 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  if (state.settingsOpen && !event.target.closest?.(".drawer") && !event.target.closest?.('[data-action="settings"]')) {
+    state.settingsOpen = false;
+    state.editing = null;
+    render();
+    return;
+  }
+
   const next = event.target.closest?.("[data-next-language]");
   if (next) {
     go(state.query, next.dataset.nextLanguage);
@@ -269,6 +345,13 @@ app.addEventListener("click", (event) => {
   } else if (control.dataset.action === "close") {
     state.settingsOpen = false;
     state.editing = null;
+  } else if (control.dataset.action === "about") {
+    event.preventDefault();
+    showPage("about");
+    return;
+  } else if (control.dataset.action === "dark-mode") {
+    state.settings.darkMode = control.checked;
+    saveSettings();
   } else if (control.dataset.action === "edit") {
     state.editing = slotNumber(control.dataset.slot, "edit");
   } else {
@@ -335,10 +418,12 @@ app.addEventListener("pointercancel", (event) => {
 
 addEventListener("popstate", () => {
   const nextParams = new URLSearchParams(location.search);
-  state.query = nextParams.get("q") || "";
-  state.selectedLanguage = nextParams.get("tl") || "";
+  state.page = pageFrom(nextParams);
+  state.query = state.page ? "" : nextParams.get("q") || "";
+  state.selectedLanguage = state.page ? "" : nextParams.get("tl") || "";
   state.lookup = null;
   state.settingsOpen = false;
+  state.editing = null;
   render();
 });
 

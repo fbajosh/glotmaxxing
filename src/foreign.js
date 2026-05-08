@@ -1,29 +1,42 @@
-import { esc, title, wiki } from "./html.js?v=missing-search-20260508";
+import { esc, title, wiki } from "./html.js?v=result-table-20260508";
 
 export function foreignView(result) {
   return `
     <article>
       <h1>${esc(result.entry.term)}</h1>
+      ${languageLine(result.entry)}
       ${result.notice ? `<p class="notice">${esc(result.notice)}</p>` : ""}
       ${redirectedFrom(result.entry)}
-      ${parts(result.entry.partsOfSpeech)}
+      ${partsTable(result.entry.partsOfSpeech)}
       ${etymology(result.entry)}
       ${nextLanguage(result.nextLanguage)}
     </article>
   `;
 }
 
-function parts(items) {
+function languageLine(entry) {
+  if (!entry.language) throw new Error(`Foreign entry for ${entry.term} is missing a language`);
+  return `<p class="foreign-language">${esc(entry.language)}</p>`;
+}
+
+function partsTable(items) {
   if (!Array.isArray(items) || !items.length) throw new Error("Foreign entry has no parts of speech");
 
-  return items.map((part) => `
-    <section class="part">
-      <h3>${esc(title(part.pos))}</h3>
-      ${part.formOf?.label ? `<p class="form-of">${wiki(part.formOf.label)}</p>` : ""}
-      <ol>${definitions(part).map((definition) => `<li>${wiki(definition)}</li>`).join("")}</ol>
-      ${alternateForms(part.alternateForms)}
-    </section>
-  `).join("");
+  return `
+    <table class="result-table foreign-table">
+      <tbody>
+        ${items.map((part) => `
+          <tr class="part-header"><th>${esc(title(part.pos))}</th></tr>
+          ${part.formOf?.label ? `<tr><td class="form-of">form: ${wiki(part.formOf.label)}</td></tr>` : ""}
+          ${definitions(part).map((definition) => `
+            <tr><td>${wiki(definition)}</td></tr>
+          `).join("")}
+          ${part.alternateForms?.length ? `<tr><td class="alternate-forms">alternate forms: ${part.alternateForms.map(wiki).join(", ")}</td></tr>` : ""}
+          <tr class="part-gap" aria-hidden="true"><td></td></tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 function definitions(part) {
@@ -47,11 +60,6 @@ function differenceText(source, target) {
     const rendered = esc(letter);
     return letter === targetLetters[index] ? rendered : `<u>${rendered}</u>`;
   }).join("");
-}
-
-function alternateForms(items) {
-  if (!items?.length) return "";
-  return `<p class="alternate-forms">Alternate forms: ${items.map(wiki).join(", ")}</p>`;
 }
 
 function nextLanguage(language) {

@@ -34,7 +34,7 @@ test("missing title resolves to first search result with a preferred language pa
   const html = foreignView(result);
   assert.match(html, /<h1>debían<\/h1>/);
   assert.match(html, /redirected from deb<u>i<\/u>an/);
-  assert.match(html, /<h3>Verb<\/h3>/);
+  assert.match(html, /<tr class="part-header"><th>Verb<\/th><\/tr>/);
 });
 
 test("missing title with no preferred-language search result returns No result", async () => {

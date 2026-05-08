@@ -1,4 +1,4 @@
-import { HEADING_RE, cleanWikiText, languageSection } from "./wiktionary.js?v=missing-search-20260508";
+import { HEADING_RE, cleanWikiText, languageSection } from "./wiktionary.js?v=result-table-20260508";
 
 export const FOREIGN_POS_RE = /^(noun|verb|adjective|adverb|proper noun|pronoun|preposition|conjunction|interjection|determiner|article|numeral|phrase|proverb|verb form|noun form|adjective form)$/i;
 export const FORM_OF_TEMPLATE_RE = /^\{\{([^{}]*\b(?:form of|plural of|feminine of|masculine of|inflection of)[^{}]*)\}\}/i;

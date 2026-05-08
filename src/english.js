@@ -6,7 +6,7 @@ export function englishView(entry, targetLanguage, preferredLanguages) {
   return `
     <article>
       <h1>${esc(entry.term)}</h1>
-      ${translationTables(entry, targetLanguage)}
+      ${translationTable(entry, targetLanguage)}
       ${availableTable(availableLanguages.filter((language) => language !== targetLanguage))}
       ${etymology(entry)}
     </article>
@@ -25,33 +25,34 @@ export function englishTarget(entry, languages, requested) {
   return language;
 }
 
-function translationTables(entry, language) {
+function translationTable(entry, language) {
   if (!Array.isArray(entry.translationGroups) || !entry.translationGroups.length) {
     throw new Error(`No sense-level translations parsed for ${entry.term}`);
   }
 
   if (!language) throw new Error(`No preferred translation language selected for ${entry.term}`);
 
-  const tables = entry.translationGroups.map((group) => {
+  const groups = entry.translationGroups.map((group) => {
     const rows = group.senses
       .map((sense) => [sense.gloss, sense.translations?.[language] || []])
       .filter((row) => row[1].length);
     if (!rows.length) return "";
 
     return `
-      <table class="sense-table">
-        <thead><tr><th>${esc(title(group.pos))}</th><th>${esc(language)}</th></tr></thead>
-        <tbody>
-          ${rows.map(([gloss, translations]) => `
-            <tr><td>${wiki(gloss)}</td><td>${translations.map(wiki).join(", ")}</td></tr>
-          `).join("")}
-        </tbody>
-      </table>
+      <tr class="part-header"><th>${esc(title(group.pos))}</th><th>${esc(language)}</th></tr>
+      ${rows.map(([gloss, translations]) => `
+        <tr><td>${wiki(gloss)}</td><td>${translations.map(wiki).join(", ")}</td></tr>
+      `).join("")}
+      <tr class="part-gap" aria-hidden="true"><td colspan="2"></td></tr>
     `;
   }).join("");
 
-  if (!tables) throw new Error(`No ${language} sense translations parsed for ${entry.term}`);
-  return tables;
+  if (!groups) throw new Error(`No ${language} sense translations parsed for ${entry.term}`);
+  return `
+    <table class="result-table">
+      <tbody>${groups}</tbody>
+    </table>
+  `;
 }
 
 function availableTable(languages) {
