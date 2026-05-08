@@ -1,0 +1,18 @@
+{
+  "name": "Glotmaxxing",
+  "short_name": "Glotmaxxing",
+  "description": "A focused dictionary reader for preferred languages.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#f4f7f5",
+  "icons": [
+    {
+      "src": "./src/assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
