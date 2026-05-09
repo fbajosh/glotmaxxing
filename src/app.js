@@ -2,13 +2,14 @@ import { aboutView } from "./about.js";
 import { SUPPORTED_LANGUAGES } from "./data.js";
 import { englishTarget, englishView } from "./english.js";
 import { errorView } from "./error.js";
-import { foreignView } from "./foreign.js?v=result-table-20260508";
+import { foreignView } from "./foreign.js";
 import { searchBar, settingsButton, esc } from "./html.js";
-import { routeWord } from "./routing.js?v=result-table-20260508";
+import { routeWord } from "./routing.js";
 import { splashView } from "./splash.js";
+import { APP_VERSION } from "./version.js";
 
 const SETTINGS_KEY = "glotmaxxing.settings";
-const defaults = { languages: ["Spanish", "Portuguese", "", "", ""], darkMode: false };
+const defaults = { languages: ["", "", "", "", ""], darkMode: false };
 const params = new URLSearchParams(location.search);
 const app = document.querySelector("#app");
 let dragState = null;
@@ -19,6 +20,8 @@ const state = {
   query: pageFrom(params) ? "" : params.get("q") || "",
   selectedLanguage: pageFrom(params) ? "" : params.get("tl") || "",
   lookup: null,
+  serverVersion: null,
+  recacheFailure: null,
   settingsOpen: false,
   editing: null
 };
@@ -68,6 +71,10 @@ function preferredLanguages() {
   return state.settings.languages.filter(Boolean);
 }
 
+function hasPreferredLanguages() {
+  return preferredLanguages().length > 0;
+}
+
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
 }
@@ -108,7 +115,7 @@ function showPage(page) {
 
 function render() {
   applyTheme();
-  app.innerHTML = state.page === "about" ? pageView(aboutView()) : state.query ? wordView() : splashShell();
+  app.innerHTML = state.page === "about" ? pageView(aboutPageView()) : state.query ? wordView() : splashShell();
 }
 
 function applyTheme() {
@@ -121,6 +128,15 @@ function applyTheme() {
 }
 
 function wordView() {
+  if (!hasPreferredLanguages()) {
+    return pageView(`
+      <article>
+        <h1>${esc(state.query)}</h1>
+        <p class="notice">Set preferred languages to search.</p>
+      </article>
+    `, state.query);
+  }
+
   const lookup = currentLookup();
   const content = lookup.failure
     ? failureView(state.query, lookup.failure)
@@ -134,23 +150,39 @@ function wordView() {
 function splashShell() {
   return `
     ${splashView({ darkMode: state.settings.darkMode })}
-    <header class="bottombar search-settings">
-      ${searchBar("")}
-      ${settingsButton()}
-    </header>
+    ${bottomBar("")}
     ${state.settingsOpen ? settingsView() : ""}
   `;
 }
 
 function pageView(content, searchValue = "") {
   return `
-    <header class="bottombar search-settings">
-      ${searchBar(searchValue)}
-      ${settingsButton()}
-    </header>
+    ${bottomBar(searchValue)}
     <main class="word">${content}</main>
     ${state.settingsOpen ? settingsView() : ""}
   `;
+}
+
+function aboutPageView() {
+  ensureServerVersion();
+  return aboutView({
+    appVersion: APP_VERSION,
+    serverVersion: state.serverVersion,
+    recacheFailure: state.recacheFailure
+  });
+}
+
+function bottomBar(searchValue = "") {
+  return `
+    <header class="bottombar search-settings">
+      ${hasPreferredLanguages() ? searchBar(searchValue) : preferredLanguageButton()}
+      ${settingsButton()}
+    </header>
+  `;
+}
+
+function preferredLanguageButton() {
+  return `<button class="language-gate" type="button" data-action="settings">Set preferred languages</button>`;
 }
 
 function currentLookup() {
@@ -178,6 +210,65 @@ function startLookup(key) {
     state.lookup = { key, loading: false, result: null, failure };
     render();
   });
+}
+
+function ensureServerVersion() {
+  if (state.serverVersion) return;
+
+  state.serverVersion = { loading: true, version: "", deployedAt: "", failure: null };
+  const url = new URL("./version.json", location.href);
+  url.searchParams.set("v", Date.now().toString());
+
+  fetch(url, { cache: "no-store" })
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Version check failed: ${response.status} ${response.statusText}`);
+      return response.json();
+    })
+    .then((data) => {
+      if (!data?.version) throw new Error("Version check returned no version");
+      state.serverVersion = {
+        loading: false,
+        version: String(data.version),
+        deployedAt: String(data.deployedAt || ""),
+        failure: null
+      };
+      if (state.page === "about") render();
+    }, (failure) => {
+      state.serverVersion = { loading: false, version: "", deployedAt: "", failure };
+      if (state.page === "about") render();
+    });
+}
+
+async function forceRecache() {
+  state.recacheFailure = null;
+  const appScope = new URL("./", location.href).href;
+
+  if ("serviceWorker" in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations
+      .filter((registration) =>
+        registration.scope.startsWith(appScope) ||
+        serviceWorkerScriptUrls(registration).some((url) => url.includes("/glotmaxxing/"))
+      )
+      .map((registration) => registration.unregister()));
+  }
+
+  if ("caches" in window) {
+    const keys = await caches.keys();
+    await Promise.all(keys
+      .filter((key) => /glotmaxxing/i.test(key))
+      .map((key) => caches.delete(key)));
+  }
+
+  const url = new URL(location.href);
+  url.searchParams.set("recache", Date.now().toString());
+  location.replace(url);
+}
+
+function serviceWorkerScriptUrls(registration) {
+  return [registration.active, registration.installing, registration.waiting]
+    .map((worker) => worker?.scriptURL || "")
+    .filter(Boolean);
 }
 
 function resultView(result) {
@@ -340,6 +431,13 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  const wordQuery = event.target.closest?.("[data-word-query]");
+  if (wordQuery) {
+    event.preventDefault();
+    go(wordQuery.dataset.wordQuery);
+    return;
+  }
+
   const control = event.target.closest?.("[data-action]");
   if (!control) return;
 
@@ -351,6 +449,13 @@ app.addEventListener("click", (event) => {
   } else if (control.dataset.action === "about") {
     event.preventDefault();
     showPage("about");
+    return;
+  } else if (control.dataset.action === "force-recache") {
+    event.preventDefault();
+    forceRecache().catch((failure) => {
+      state.recacheFailure = failure;
+      render();
+    });
     return;
   } else if (control.dataset.action === "dark-mode") {
     state.settings.darkMode = control.checked;
@@ -367,7 +472,7 @@ app.addEventListener("click", (event) => {
 app.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
   const row = event.target.closest?.(".slots li");
-  if (!row || event.target.closest?.("form, input, datalist")) return;
+  if (!row || event.target.closest?.("form, input, datalist, button")) return;
 
   dragState = {
     pointerId: event.pointerId,

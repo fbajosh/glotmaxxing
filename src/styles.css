@@ -124,7 +124,8 @@ button { cursor: pointer; }
 }
 
 .search input,
-.icon {
+.icon,
+.language-gate {
   height: 42px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -134,6 +135,14 @@ button { cursor: pointer; }
 .search input {
   min-width: 0;
   padding: 0 12px;
+}
+
+.language-gate {
+  min-width: 0;
+  padding: 0 12px;
+  color: var(--button-text);
+  font-weight: 700;
+  text-align: left;
 }
 
 .logo {
@@ -456,7 +465,6 @@ td {
 }
 
 .about-page p {
-  max-width: 68ch;
   line-height: 1.55;
 }
 

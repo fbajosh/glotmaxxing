@@ -9,8 +9,8 @@ test("English result renders as one table with part headers", () => {
   const html = englishView({
     term: "house",
     translationGroups: [
-      { pos: "noun", senses: [{ gloss: "human abode", translations: { Spanish: ["casa (es)"] } }] },
-      { pos: "verb", senses: [{ gloss: "keep within", translations: { Spanish: ["alojar (es)"] } }] }
+      { pos: "noun", senses: [{ gloss: "human abode", translations: { Spanish: [{ query: "casa", text: "casa" }] } }] },
+      { pos: "verb", senses: [{ gloss: "keep within", translations: { Spanish: [{ query: "alojar", text: "alojar" }] } }] }
     ],
     etymologyNotes: []
   }, "Spanish", ["Spanish"]);
@@ -18,6 +18,8 @@ test("English result renders as one table with part headers", () => {
   assert.equal((html.match(/<table class="result-table">/g) || []).length, 1);
   assert.match(html, /<tr class="part-header"><th>Noun<\/th><th>Spanish<\/th><\/tr>/);
   assert.match(html, /<tr class="part-header"><th>Verb<\/th><th>Spanish<\/th><\/tr>/);
+  assert.match(html, /<a href="\?q=casa" data-word-query="casa">casa<\/a>/);
+  assert.doesNotMatch(html, /\(es\)/);
   assert.match(html, /class="part-gap"/);
 });
 
@@ -46,12 +48,28 @@ test("Foreign result renders as one table with part headers", () => {
 });
 
 test("About page explains data source and routing", () => {
-  const html = aboutView();
+  const html = aboutView({
+    appVersion: "v20260509.152647",
+    serverVersion: { version: "v20260509.152647", deployedAt: "2026-05-09T15:26:47Z" }
+  });
 
   assert.match(html, /<h1>About<\/h1>/);
   assert.match(html, /Wiktionary/);
   assert.match(html, /strong English entry/);
   assert.match(html, /preferred languages in order/);
+  assert.match(html, /App version: v20260509\.152647/);
+  assert.match(html, /Latest version: v20260509\.152647/);
+  assert.match(html, /Status: current/);
+  assert.match(html, /<a href="\?page=about&amp;recache=1" data-action="force-recache">Force recache<\/a>/);
+});
+
+test("About page shows out-of-sync server version", () => {
+  const html = aboutView({
+    appVersion: "v20260509.152647",
+    serverVersion: { version: "v20260509.152700", deployedAt: "2026-05-09T15:27:00Z" }
+  });
+
+  assert.match(html, /Status: out of sync/);
 });
 
 test("Splash renders theme-specific hero", () => {

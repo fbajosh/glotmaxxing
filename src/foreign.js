@@ -1,4 +1,4 @@
-import { esc, title, wiki } from "./html.js?v=result-table-20260508";
+import { esc, title, wiki } from "./html.js";
 
 export function foreignView(result) {
   return `

@@ -155,11 +155,33 @@ function translationsFromLine(line, code) {
     const parts = match[2].split("|").map((part) => part.trim());
     if (parts[0] !== code || !parts[1]) continue;
     const gender = parts.find((part) => GENDER_RE.test(part));
-    results.push(`${parts[1]} (${code})${gender ? ` ${gender.replace("-p", "")}` : ""}`);
+    results.push(translationItem(parts[1], templateDisplay(parts), gender));
   }
 
   return results.length ? results : [...line.matchAll(/\[\[([^|\]]+)(?:\|([^\]]+))?\]\]/g)]
-    .map((item) => `${item[2] || item[1]} (${code})`);
+    .map((item) => translationItem(item[1], item[2] || item[1]));
+}
+
+function translationItem(query, text, gender = "") {
+  const item = {
+    query: cleanLinkedTranslation(query, "target"),
+    text: cleanLinkedTranslation(text, "display")
+  };
+  if (gender) item.qualifier = gender.replace("-p", "");
+  return item;
+}
+
+function templateDisplay(parts) {
+  const namedAlt = parts.find((part) => part.startsWith("alt="));
+  return namedAlt ? namedAlt.slice(4) : parts[1];
+}
+
+function cleanLinkedTranslation(value, mode) {
+  return String(value || "")
+    .replace(/\[\[([^|\]#]+)(?:#[^|\]]*)?\|([^\]]+)\]\]/g, (_, target, display) => mode === "target" ? target : display)
+    .replace(/\[\[([^|\]#]+)(?:#[^\]]*)?\]\]/g, "$1")
+    .replace(/\[\[|\]\]/g, "")
+    .trim();
 }
 
 function isEnglishPartOfSpeech(value) {

@@ -25,7 +25,7 @@ From Middle English runnen.
   assert.equal(entry.term, "run");
   assert.equal(entry.etymologyNotes[0], "From Middle English runnen.");
   assert.equal("partsOfSpeech" in entry, false);
-  assert.deepEqual(entry.translationGroups[0].senses[0].translations.Spanish, ["correr (es)"]);
+  assert.deepEqual(entry.translationGroups[0].senses[0].translations.Spanish, [{ query: "correr", text: "correr" }]);
 });
 
 test("translation parser groups preferred languages by sense", () => {
@@ -41,7 +41,36 @@ test("translation parser groups preferred languages by sense", () => {
 
   assert.equal(groups[0].pos, "verb");
   assert.equal(groups[0].senses[0].gloss, "to manage");
-  assert.deepEqual(groups[0].senses[0].translations.Spanish, ["dirigir (es)", "gestionar (es)"]);
+  assert.deepEqual(groups[0].senses[0].translations.Spanish, [
+    { query: "dirigir", text: "dirigir" },
+    { query: "gestionar", text: "gestionar" }
+  ]);
+});
+
+test("translation parser removes wiki link brackets from translation text and query", () => {
+  const linkedTemplateGroups = parseTranslationGroups(`
+==English==
+===Noun===
+====Translations====
+{{trans-top|small house}}
+* Spanish: {{t+|es|[[casa]]|alt=[[casita]]}}
+{{trans-bottom}}
+`);
+  const linkedTextGroups = parseTranslationGroups(`
+==English==
+===Noun===
+====Translations====
+{{trans-top|home}}
+* Spanish: [[hogar]]
+{{trans-bottom}}
+`);
+
+  assert.deepEqual(linkedTemplateGroups[0].senses[0].translations.Spanish, [
+    { query: "casa", text: "casita" }
+  ]);
+  assert.deepEqual(linkedTextGroups[0].senses[0].translations.Spanish, [
+    { query: "hogar", text: "hogar" }
+  ]);
 });
 
 test("foreign parser extracts definitions", () => {

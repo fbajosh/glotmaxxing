@@ -41,7 +41,7 @@ function translationTable(entry, language) {
     return `
       <tr class="part-header"><th>${esc(title(group.pos))}</th><th>${esc(language)}</th></tr>
       ${rows.map(([gloss, translations]) => `
-        <tr><td>${wiki(gloss)}</td><td>${translations.map(wiki).join(", ")}</td></tr>
+        <tr><td>${wiki(gloss)}</td><td>${translations.map(translationLink).join(", ")}</td></tr>
       `).join("")}
       <tr class="part-gap" aria-hidden="true"><td colspan="2"></td></tr>
     `;
@@ -53,6 +53,15 @@ function translationTable(entry, language) {
       <tbody>${groups}</tbody>
     </table>
   `;
+}
+
+function translationLink(translation) {
+  if (typeof translation === "string") return wiki(translation);
+
+  if (!translation?.query) throw new Error("Linked English translation is missing a query");
+  if (!translation.text) throw new Error(`Linked English translation for ${translation.query} is missing display text`);
+
+  return `<a href="?q=${encodeURIComponent(translation.query)}" data-word-query="${esc(translation.query)}">${wiki(translation.text)}</a>${translation.qualifier ? ` ${esc(translation.qualifier)}` : ""}`;
 }
 
 function availableTable(languages) {

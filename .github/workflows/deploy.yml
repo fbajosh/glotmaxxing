@@ -53,6 +53,9 @@ jobs:
           test -n "$DEPLOY_SSH_KEY"
           test -n "$DEPLOY_TARGET_DIR"
 
+      - name: Stamp deploy version
+        run: node scripts/stamp-version.mjs "v$(date -u +'%Y%m%d.%H%M%S')"
+
       - name: Prepare SSH
         run: |
           install -m 700 -d ~/.ssh
@@ -67,7 +70,7 @@ jobs:
             --exclude='.github' \
             --exclude='.DS_Store' \
             -czf glotmaxxing.tar.gz \
-            index.html manifest.webmanifest public src
+            .htaccess index.html manifest.webmanifest version.json sw.js public src
 
       - name: Upload application
         run: |
