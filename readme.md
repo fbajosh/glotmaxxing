@@ -18,12 +18,4 @@ English pages show sense-level translations into the highest-priority available 
 
 Foreign pages show the selected language section content parsed from Wiktionary.
 
-## Deploy Version
-
-GitHub Actions stamps each deploy as `vYYYYMMDD.hhmmss`, writes that value to `src/version.js` and `version.json`, and updates static asset query strings before packaging. The About page shows the loaded app version, fetches `version.json` from the server with a cache-busting query, and marks the app out of sync when those versions differ.
-
-The deployed `.htaccess` sends no-store cache headers for this app path when Apache allows per-directory headers. A `sw.js` kill switch is also deployed so any older service worker registered for the app path can clear Cache Storage and unregister.
-
-## License
-
-MIT. See `LICENSE`.
+hosted st: https://appmogged.com/glotmaxxing/
