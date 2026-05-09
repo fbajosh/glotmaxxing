@@ -6,7 +6,7 @@ export const icons = {
 export function searchBar(value) {
   return `
     <form class="search" data-role="search">
-      <input name="q" type="search" value="${esc(value)}" placeholder="Search">
+      <input name="q" type="search" value="${esc(value)}" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" enterkeyhint="search">
       <button class="icon" type="submit" aria-label="Search" title="Search">${icons.search}</button>
     </form>
   `;
