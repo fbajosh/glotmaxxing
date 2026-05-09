@@ -3,7 +3,7 @@ import { SUPPORTED_LANGUAGES } from "./data.js";
 import { englishTarget, englishView } from "./english.js";
 import { errorView } from "./error.js";
 import { foreignView } from "./foreign.js?v=result-table-20260508";
-import { searchBar, settingsButton, esc } from "./html.js";
+import { onetimecodeBar, settingsButton, esc } from "./html.js";
 import { routeWord } from "./routing.js?v=result-table-20260508";
 import { splashView } from "./splash.js";
 
@@ -135,7 +135,7 @@ function splashShell() {
   return `
     ${splashView({ darkMode: state.settings.darkMode })}
     <header class="bottombar search-settings">
-      ${searchBar("")}
+      ${onetimecodeBar("")}
       ${settingsButton()}
     </header>
     ${state.settingsOpen ? settingsView() : ""}
@@ -145,7 +145,7 @@ function splashShell() {
 function pageView(content, searchValue = "") {
   return `
     <header class="bottombar search-settings">
-      ${searchBar(searchValue)}
+      ${onetimecodeBar(searchValue)}
       ${settingsButton()}
     </header>
     <main class="word">${content}</main>
