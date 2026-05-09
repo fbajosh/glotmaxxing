@@ -78,6 +78,42 @@ test("English entries without sense translations route to preferred language", a
   assert.equal(result.entry.partsOfSpeech[0].conjugation.lemma, "parles");
 });
 
+test("English entries expose foreign result languages and can open them explicitly", async () => {
+  const tools = {
+    fetchWikitext: async (title) => {
+      assert.equal(title, "casa");
+      return englishWithSpanishResult();
+    },
+    searchTitles: async () => {
+      throw new Error("Search should not run");
+    },
+    expandTemplates: async () => ""
+  };
+
+  const english = await routeWord({
+    query: "casa",
+    preferredLanguages: ["Spanish", "Portuguese"],
+    selectedLanguage: "",
+    resultLanguage: "",
+    tools
+  });
+
+  assert.equal(english.flow, "english");
+  assert.deepEqual(english.availableLanguages, ["Spanish"]);
+
+  const foreign = await routeWord({
+    query: "casa",
+    preferredLanguages: ["Spanish", "Portuguese"],
+    selectedLanguage: "",
+    resultLanguage: "Spanish",
+    tools
+  });
+
+  assert.equal(foreign.flow, "foreign");
+  assert.equal(foreign.entry.language, "Spanish");
+  assert.equal(foreign.entry.partsOfSpeech[0].definitions[0], "house");
+});
+
 test("missing title with no preferred-language search result returns No result", async () => {
   await assert.rejects(
     routeWord({
@@ -115,6 +151,26 @@ function englishOnly() {
 ==English==
 ===Noun===
 # A test page.
+`;
+}
+
+function englishWithSpanishResult() {
+  return `
+==English==
+===Noun===
+# One definition.
+# Another definition.
+# A third definition.
+
+====Translations====
+{{trans-top|human abode}}
+* Spanish: {{t|es|casa}}
+* Portuguese: {{t|pt|casa}}
+{{trans-bottom}}
+
+==Spanish==
+===Noun===
+# house
 `;
 }
 

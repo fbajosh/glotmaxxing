@@ -19,6 +19,7 @@ const state = {
   page: pageFrom(params),
   query: pageFrom(params) ? "" : params.get("q") || "",
   selectedLanguage: pageFrom(params) ? "" : params.get("tl") || "",
+  resultLanguage: pageFrom(params) ? "" : params.get("rl") || "",
   lookup: null,
   serverVersion: null,
   recacheFailure: null,
@@ -86,17 +87,19 @@ function pageFrom(urlParams) {
   return page;
 }
 
-function go(query, selectedLanguage = "") {
+function go(query, selectedLanguage = "", resultLanguage = "") {
   const next = String(query || "").trim();
   if (!next) return;
   state.page = "";
   state.query = next;
   state.selectedLanguage = selectedLanguage;
+  state.resultLanguage = resultLanguage;
   state.lookup = null;
   state.settingsOpen = false;
 
   const nextParams = new URLSearchParams({ q: next });
   if (selectedLanguage) nextParams.set("tl", selectedLanguage);
+  if (resultLanguage) nextParams.set("rl", resultLanguage);
   history.pushState({}, "", `${location.pathname}?${nextParams.toString()}`);
   render();
 }
@@ -106,6 +109,7 @@ function showPage(page) {
   state.page = page;
   state.query = "";
   state.selectedLanguage = "";
+  state.resultLanguage = "";
   state.lookup = null;
   state.settingsOpen = false;
   state.editing = null;
@@ -192,7 +196,7 @@ function currentLookup() {
 }
 
 function lookupKey() {
-  return [state.query, preferredLanguages().join(","), state.selectedLanguage].join("|");
+  return [state.query, preferredLanguages().join(","), state.selectedLanguage, state.resultLanguage].join("|");
 }
 
 function startLookup(key) {
@@ -200,7 +204,8 @@ function startLookup(key) {
   Promise.resolve().then(() => routeWord({
     query: state.query,
     preferredLanguages: preferredLanguages(),
-    selectedLanguage: selectedLanguage()
+    selectedLanguage: selectedLanguage(),
+    resultLanguage: resultLanguage()
   })).then((result) => {
     if (state.lookup?.key !== key) return;
     state.lookup = { key, loading: false, result, failure: null };
@@ -277,7 +282,7 @@ function resultView(result) {
 
   const languages = preferredLanguages();
   const target = englishTarget(result.entry, languages, findLanguage(state.selectedLanguage));
-  return englishView(result.entry, target, languages);
+  return englishView(result.entry, target, languages, result.availableLanguages || []);
 }
 
 function loadingView(query) {
@@ -360,6 +365,13 @@ function selectedLanguage() {
   return language;
 }
 
+function resultLanguage() {
+  if (!state.resultLanguage) return "";
+  const language = findLanguage(state.resultLanguage);
+  if (!language) throw new Error(`Unsupported result language: ${state.resultLanguage}`);
+  return language;
+}
+
 function slotNumber(value, label) {
   if (String(value ?? "").trim() === "") throw new Error(`Invalid ${label} slot: ${value}`);
   const slot = Number(value);
@@ -427,9 +439,15 @@ app.addEventListener("click", (event) => {
     return;
   }
 
-  const next = event.target.closest?.("[data-next-language]");
-  if (next) {
-    go(state.query, next.dataset.nextLanguage);
+  const translation = event.target.closest?.("[data-translation-language]");
+  if (translation) {
+    go(state.query, translation.dataset.translationLanguage);
+    return;
+  }
+
+  const resultLanguageControl = event.target.closest?.("[data-result-language]");
+  if (resultLanguageControl) {
+    go(state.query, "", resultLanguageControl.dataset.resultLanguage);
     return;
   }
 

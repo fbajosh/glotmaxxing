@@ -10,16 +10,30 @@ test("English result renders as one table with part headers", () => {
     term: "house",
     translationGroups: [
       { pos: "noun", senses: [{ gloss: "human abode", translations: { Spanish: [{ query: "casa", text: "casa" }] } }] },
-      { pos: "verb", senses: [{ gloss: "keep within", translations: { Spanish: [{ query: "alojar", text: "alojar" }] } }] }
+      {
+        pos: "verb",
+        senses: [{
+          gloss: "keep within",
+          translations: {
+            Spanish: [{ query: "alojar", text: "alojar" }],
+            Portuguese: [{ query: "alojar", text: "alojar" }]
+          }
+        }]
+      }
     ],
     etymologyNotes: []
-  }, "Spanish", ["Spanish"]);
+  }, "Spanish", ["Spanish", "Portuguese"], ["Spanish", "Italian"]);
 
   assert.equal((html.match(/<table class="result-table">/g) || []).length, 1);
   assert.match(html, /<tr class="part-header"><th>Noun<\/th><th>Spanish<\/th><\/tr>/);
   assert.match(html, /<tr class="part-header"><th>Verb<\/th><th>Spanish<\/th><\/tr>/);
   assert.match(html, /<a href="\?q=casa" data-word-query="casa">casa<\/a>/);
   assert.doesNotMatch(html, /\(es\)/);
+  assert.doesNotMatch(html, /Also available/);
+  assert.match(html, /Other translations/);
+  assert.match(html, /data-translation-language="Portuguese"/);
+  assert.match(html, /Other results for house/);
+  assert.match(html, /data-result-language="Spanish"/);
   assert.match(html, /class="part-gap"/);
 });
 
@@ -70,6 +84,8 @@ test("Foreign result renders as one table with part headers", () => {
   assert.match(html, /<td class="alternate-forms">alternate forms: canto<\/td>/);
   assert.match(html, /<h2>Verb conjugation of cantar<\/h2>/);
   assert.match(html, /<tr><th>Infinitive<\/th><td>cantar<\/td><\/tr>/);
+  assert.match(html, /class="conjugation-grid"/);
+  assert.match(html, /class="tense-table"/);
   assert.match(html, /<h3>Present Indicative<\/h3>/);
   assert.match(html, /<tr><td>2nd<\/td><td>cantas, cantás<\/td><td>cantáis<\/td><\/tr>/);
   assert.match(html, /class="part-gap"/);
@@ -84,6 +100,8 @@ test("About page explains data source and routing", () => {
   assert.match(html, /<h1>About<\/h1>/);
   assert.match(html, /Wiktionary/);
   assert.match(html, /strong English entry/);
+  assert.match(html, /Other translations/);
+  assert.match(html, /Other results/);
   assert.match(html, /preferred languages in order/);
   assert.match(html, /App version: v20260509\.152647/);
   assert.match(html, /Latest version: v20260509\.152647/);

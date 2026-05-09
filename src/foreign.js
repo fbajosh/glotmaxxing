@@ -61,7 +61,7 @@ function conjugationTables(entry) {
     <section class="entry-section conjugation-section">
       <h2>Verb conjugation of ${esc(chart.lemma)}</h2>
       ${nonfiniteTable(chart)}
-      ${chart.tenses.map(tenseTable).join("")}
+      ${chart.tenses.length ? `<div class="conjugation-grid">${chart.tenses.map(tenseTable).join("")}</div>` : ""}
     </section>
   `).join("");
 }
@@ -81,17 +81,19 @@ function nonfiniteTable(chart) {
 
 function tenseTable(tense) {
   return `
-    <h3>${esc(tenseTitle(tense))}</h3>
-    <table class="conjugation-table">
-      <thead>
-        <tr><th>Person</th><th>Singular</th><th>Plural</th></tr>
-      </thead>
-      <tbody>
-        ${tense.rows.map((row) => `
-          <tr><td>${esc(row.person)}</td><td>${esc(row.singular)}</td><td>${esc(row.plural)}</td></tr>
-        `).join("")}
-      </tbody>
-    </table>
+    <section class="tense-table">
+      <h3>${esc(tenseTitle(tense))}</h3>
+      <table class="conjugation-table">
+        <thead>
+          <tr><th>Person</th><th>Singular</th><th>Plural</th></tr>
+        </thead>
+        <tbody>
+          ${tense.rows.map((row) => `
+            <tr><td>${esc(row.person)}</td><td>${esc(row.singular)}</td><td>${esc(row.plural)}</td></tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </section>
   `;
 }
 
@@ -120,7 +122,7 @@ function nextLanguage(language) {
   if (!language) return "";
   return `
     <section class="entry-section next-language">
-      <button type="button" data-next-language="${esc(language)}">Next: ${esc(language)}</button>
+      <button type="button" data-result-language="${esc(language)}">Next: ${esc(language)}</button>
     </section>
   `;
 }

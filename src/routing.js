@@ -15,7 +15,7 @@ export function classifyEnglish(signals) {
   return "minimal";
 }
 
-export async function routeWord({ query, preferredLanguages, selectedLanguage, tools = {} }) {
+export async function routeWord({ query, preferredLanguages, selectedLanguage, resultLanguage, tools = {} }) {
   const api = { fetchWikitext, expandTemplates, searchTitles, ...tools };
   const requestedTerm = query.trim();
   const lookup = await lookupWikitext(requestedTerm, preferredLanguages, api);
@@ -25,8 +25,10 @@ export async function routeWord({ query, preferredLanguages, selectedLanguage, t
   const englishPresence = classifyEnglish(englishSignals(pageWikitext));
   const availableLanguages = preferredLanguages.filter((language) => hasLanguageSection(pageWikitext, language));
 
+  if (resultLanguage) return routeForeignResult(term, pageWikitext, englishPresence, lookup.redirectedFrom, availableLanguages, resultLanguage, api);
+
   if (!lookup.redirectedFrom && ENGLISH_RULES.routeToEnglish.has(englishPresence)) {
-    const englishResult = await routeEnglish(term, pageWikitext, englishPresence, api);
+    const englishResult = await routeEnglish(term, pageWikitext, englishPresence, availableLanguages, api);
     if (englishResult) return englishResult;
   }
 
@@ -51,7 +53,7 @@ export async function routeWord({ query, preferredLanguages, selectedLanguage, t
   };
 }
 
-async function routeEnglish(term, pageWikitext, englishPresence, api) {
+async function routeEnglish(term, pageWikitext, englishPresence, availableLanguages, api) {
   try {
     parseEnglishTranslationGroups(pageWikitext);
     const needsTranslationSubpage = hasEnglishTranslationSubpageReference(pageWikitext);
@@ -63,12 +65,31 @@ async function routeEnglish(term, pageWikitext, englishPresence, api) {
       kind: "entry",
       flow: "english",
       englishPresence,
-      entry: parseEnglishEntry(term, pageWikitext, translationSources)
+      entry: parseEnglishEntry(term, pageWikitext, translationSources),
+      availableLanguages
     };
   } catch (error) {
     if (isNoSenseTranslations(error, term)) return null;
     throw error;
   }
+}
+
+async function routeForeignResult(term, pageWikitext, englishPresence, redirectedFrom, availableLanguages, language, api) {
+  if (!availableLanguages.includes(language)) {
+    throw new Error(`${language} section not available for ${term}`);
+  }
+
+  return {
+    kind: "entry",
+    flow: "foreign",
+    englishPresence,
+    entry: redirectedEntry(
+      await resolveForeignEntry(term, pageWikitext, language, api),
+      redirectedFrom
+    ),
+    availableLanguages,
+    nextLanguage: availableLanguages[availableLanguages.indexOf(language) + 1] || ""
+  };
 }
 
 async function fetchTranslationSubpage(term, api) {

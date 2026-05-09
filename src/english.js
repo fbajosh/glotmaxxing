@@ -1,13 +1,15 @@
 import { esc, title, wiki } from "./html.js";
 
-export function englishView(entry, targetLanguage, preferredLanguages) {
-  const availableLanguages = preferredLanguages.filter((language) => hasTranslations(entry, language));
+export function englishView(entry, targetLanguage, preferredLanguages, resultLanguages = []) {
+  const translationLanguages = preferredLanguages.filter((language) => hasTranslations(entry, language));
+  const otherResultLanguages = resultLanguages.filter((language) => preferredLanguages.includes(language));
 
   return `
     <article>
       <h1>${esc(entry.term)}</h1>
       ${translationTable(entry, targetLanguage)}
-      ${availableTable(availableLanguages.filter((language) => language !== targetLanguage))}
+      ${translationLanguageTable(translationLanguages.filter((language) => language !== targetLanguage))}
+      ${foreignResultTable(entry.term, otherResultLanguages)}
       ${etymology(entry)}
     </article>
   `;
@@ -64,14 +66,28 @@ function translationLink(translation) {
   return `<a href="?q=${encodeURIComponent(translation.query)}" data-word-query="${esc(translation.query)}">${wiki(translation.text)}</a>${translation.qualifier ? ` ${esc(translation.qualifier)}` : ""}`;
 }
 
-function availableTable(languages) {
+function translationLanguageTable(languages) {
   if (!languages.length) return "";
   return `
     <table class="available-table">
-      <thead><tr><th>Also available</th></tr></thead>
+      <thead><tr><th>Other translations</th></tr></thead>
       <tbody>
         ${languages.map((language) => `
-          <tr><td><button type="button" data-next-language="${esc(language)}">${esc(language)}</button></td></tr>
+          <tr><td><button type="button" data-translation-language="${esc(language)}">${esc(language)}</button></td></tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function foreignResultTable(term, languages) {
+  if (!languages.length) return "";
+  return `
+    <table class="available-table">
+      <thead><tr><th>Other results for ${esc(term)}</th></tr></thead>
+      <tbody>
+        ${languages.map((language) => `
+          <tr><td><button type="button" data-result-language="${esc(language)}">${esc(language)}</button></td></tr>
         `).join("")}
       </tbody>
     </table>
