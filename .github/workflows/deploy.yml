@@ -86,5 +86,5 @@ jobs:
             -exec rm -rf {} +
           tar -xzf glotmaxxing.tar.gz
           rm glotmaxxing.tar.gz
-          /opt/bitnami/ctlscript.sh restart apache
+          sudo /opt/bitnami/ctlscript.sh restart apache
           REMOTE
