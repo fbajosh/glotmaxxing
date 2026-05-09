@@ -223,6 +223,9 @@ function settingsView() {
       </section>
       <section class="drawer-section language-section">
         <h2>Language preferences</h2>
+        <p>You must select at least one preferred language in addition to English. 
+        You may select up to five languages. Results will appear in the order that
+        you choose. You may drag languages to reorder them.</p>
       <ol class="slots">${state.settings.languages.map(slotView).join("")}</ol>
       </section>
       <section class="drawer-section glotmaxxing-section">
@@ -240,7 +243,7 @@ function settingsView() {
 function slotView(language, index) {
   return `
     <li data-slot="${index}">
-      <button type="button" data-action="edit" data-slot="${index}">${esc(language || "Set language")}</button>
+      <button type="button" data-action="edit" data-slot="${index}">${esc(language || "Tap to set language")}</button>
       ${state.editing === index ? `
         <form data-role="language" data-slot="${index}">
           <input name="language" type="search" list="languages" value="${esc(language)}" placeholder="Language">

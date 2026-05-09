@@ -17,7 +17,7 @@ export function aboutView() {
       </section>
 
       <section class="entry-section">
-        <p>v0.1</p>
+        <p>v0.1.1</p>
       </section>
     </article>
   `;
