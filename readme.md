@@ -18,4 +18,4 @@ English pages show sense-level translations into the highest-priority available 
 
 Foreign pages show the selected language section content parsed from Wiktionary.
 
-hosted st: https://appmogged.com/glotmaxxing/
+Hosted at: https://appmogged.com/glotmaxxing/
