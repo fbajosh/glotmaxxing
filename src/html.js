@@ -5,23 +5,8 @@ export const icons = {
 
 export function searchBar(value) {
   return `
-    <form class="search" data-role="search" autocomplete="off">
-      <input 
-        name="glotquest"
-        type="search" 
-        value="${esc(value)}" 
-        placeholder="Search" 
-        autocapitalize="off" 
-        autocorrect="off" 
-        autocomplete="new-quest"
-        spellcheck="false" 
-        enterkeyhint="search" 
-        inputmode="text" 
-        aria-autocomplete="none" 
-        data-lpignore="true" 
-        data-1p-ignore="true" 
-        data-form-type="other"
-      >
+    <form class="search" data-role="search" autocomplete="one-time-code">
+      <input name="q" type="search" value="${esc(value)}" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" enterkeyhint="search" inputmode="text" aria-autocomplete="none" data-lpignore="true" data-1p-ignore="true" data-form-type="other">
       <button class="icon" type="submit" aria-label="Search" title="Search">${icons.search}</button>
     </form>
   `;
