@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { aboutView } from "../src/about.js";
 import { englishView } from "../src/english.js";
 import { foreignView } from "../src/foreign.js";
-import { splashView } from "../src/splash.js";
+import { lightHeroSvg, splashView } from "../src/splash.js";
 
 test("English result renders as one table with part headers", () => {
   const html = englishView({
@@ -122,6 +122,21 @@ test("Splash renders theme-specific hero", () => {
   const html = splashView();
   const darkHtml = splashView({ darkMode: true });
 
-  assert.match(html, /hero-light\.svg/);
-  assert.match(darkHtml, /hero-dark\.svg/);
+  assert.match(html, /public\/assets\/hero\.svg/);
+  assert.match(html, /data-hero-mode="light"/);
+  assert.match(darkHtml, /public\/assets\/hero\.svg/);
+  assert.match(darkHtml, /data-hero-mode="dark"/);
+  assert.doesNotMatch(`${html}${darkHtml}`, /hero-light\.svg|hero-dark\.svg/);
+});
+
+test("Light splash hero swaps SVG colors", () => {
+  const svg = '<svg><path fill="#6666FF" stroke="white"/><path fill="#66FFFF"/><path fill="#4FFFFF"/><path fill="#FFFFFF"/><path fill="#FFD4D4"/><path fill="#FF5757"/></svg>';
+  const light = lightHeroSvg(svg);
+
+  assert.match(light, /fill="#000066"/);
+  assert.match(light, /stroke="#000000"/);
+  assert.match(light, /fill="#00004F"/);
+  assert.match(light, /fill="#000000"/);
+  assert.match(light, /fill="#D40000"/);
+  assert.match(light, /fill="#570000"/);
 });

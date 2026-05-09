@@ -74,6 +74,7 @@ button { cursor: pointer; }
   line-height: 1;
   letter-spacing: 0;
   text-align: center;
+  font-family: 'Georgia', 'Times New Roman', Times, serif;
 }
 
 .splash h2 {
@@ -91,6 +92,7 @@ button { cursor: pointer; }
   font-size: 4.25rem;
   line-height: 1;
   letter-spacing: 0;
+  font-family: 'Georgia', 'Times New Roman', Times, serif;
 }
 
 .bottombar {

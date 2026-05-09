@@ -5,11 +5,12 @@ import { errorView } from "./error.js";
 import { foreignView } from "./foreign.js";
 import { searchBar, settingsButton, esc } from "./html.js";
 import { routeWord } from "./routing.js";
-import { splashView } from "./splash.js";
+import { splashView, syncSplashHero } from "./splash.js";
 import { APP_VERSION } from "./version.js";
 
 const SETTINGS_KEY = "glotmaxxing.settings";
-const defaults = { languages: ["", "", "", "", ""], darkMode: false };
+const MIN_LANGUAGE_ROWS = 3;
+const defaults = { languages: Array(MIN_LANGUAGE_ROWS).fill(""), darkMode: false };
 const params = new URLSearchParams(location.search);
 const app = document.querySelector("#app");
 let dragState = null;
@@ -45,7 +46,6 @@ function loadSettings() {
 
 function normalizeSlots(languages) {
   if (!Array.isArray(languages)) throw new Error("Language settings must be an array");
-  if (languages.length > 5) throw new Error("Language settings cannot contain more than five rows");
 
   const slots = [];
   const used = new Set();
@@ -64,7 +64,20 @@ function normalizeSlots(languages) {
     used.add(language);
   }
 
-  while (slots.length < 5) slots.push("");
+  return displayLanguageSlots(slots);
+}
+
+function displayLanguageSlots(languages) {
+  const slots = [...languages];
+  while (
+    slots.length > MIN_LANGUAGE_ROWS &&
+    slots[slots.length - 1] === "" &&
+    slots[slots.length - 2] === ""
+  ) {
+    slots.pop();
+  }
+  while (slots.length < MIN_LANGUAGE_ROWS) slots.push("");
+  if (!slots.includes("")) slots.push("");
   return slots;
 }
 
@@ -120,6 +133,9 @@ function showPage(page) {
 function render() {
   applyTheme();
   app.innerHTML = state.page === "about" ? pageView(aboutPageView()) : state.query ? wordView() : splashShell();
+  syncSplashHero(app).catch((failure) => {
+    throw failure;
+  });
 }
 
 function applyTheme() {
@@ -321,9 +337,7 @@ function settingsView() {
       </section>
       <section class="drawer-section language-section">
         <h2>Language preferences</h2>
-        <p>You must select at least one preferred language in addition to English. 
-        You may select up to five languages. Results will appear in the order that
-        you choose. You may drag languages to reorder them.</p>
+        ${hasPreferredLanguages() ? "" : `<p>You must select at least one preferred language in addition to English.</p>`}
       <ol class="slots">${state.settings.languages.map(slotView).join("")}</ol>
       </section>
       <section class="drawer-section glotmaxxing-section">
@@ -375,7 +389,9 @@ function resultLanguage() {
 function slotNumber(value, label) {
   if (String(value ?? "").trim() === "") throw new Error(`Invalid ${label} slot: ${value}`);
   const slot = Number(value);
-  if (!Number.isInteger(slot) || slot < 0 || slot > 4) throw new Error(`Invalid ${label} slot: ${value}`);
+  if (!Number.isInteger(slot) || slot < 0 || slot >= state.settings.languages.length) {
+    throw new Error(`Invalid ${label} slot: ${value}`);
+  }
   return slot;
 }
 
@@ -385,7 +401,7 @@ function reorderLanguageSlots(source, target) {
   const slots = [...state.settings.languages];
   const [item] = slots.splice(source, 1);
   slots.splice(target, 0, item);
-  state.settings.languages = slots.slice(0, 5);
+  state.settings.languages = displayLanguageSlots(slots);
   state.lookup = null;
   saveSettings();
 }
@@ -419,6 +435,7 @@ app.addEventListener("submit", (event) => {
 
   state.settings.languages = state.settings.languages.map((item, index) => item === language && index !== slot ? "" : item);
   state.settings.languages[slot] = language;
+  state.settings.languages = displayLanguageSlots(state.settings.languages);
   state.editing = null;
   saveSettings();
   render();
