@@ -27,7 +27,11 @@ export async function resolveForeignEntry(term, wikitext, language, tools) {
 
   for (const part of parsed.partsOfSpeech) {
     if (!part.formOf) {
-      partsOfSpeech.push(await resolveLemmaPart(term, part, tools.expandTemplates));
+      const resolved = await resolveLemmaPart(term, part, tools.expandTemplates);
+      if (resolved.pos === "verb") {
+        resolved.conjugation = await conjugationChart(term, parsed.section, tools.expandTemplates);
+      }
+      partsOfSpeech.push(resolved);
       etymologyNotes.push(...parsed.etymologyNotes);
       continue;
     }
@@ -37,12 +41,17 @@ export async function resolveForeignEntry(term, wikitext, language, tools) {
     const lemmaPart = findLemmaPart(lemma.partsOfSpeech, part.pos, part.formOf.lemma);
     const label = await formLabel(term, part, tools.expandTemplates);
 
-    partsOfSpeech.push({
+    const resolved = {
       pos: displayPos(part.pos),
       formOf: { lemma: part.formOf.lemma, label },
       definitions: lemmaPart.definitions,
       alternateForms: await alternateForms(part.formOf.lemma, term, lemmaPart, tools.expandTemplates)
-    });
+    };
+    if (resolved.pos === "verb") {
+      resolved.conjugation = await conjugationChart(part.formOf.lemma, lemma.section, tools.expandTemplates);
+    }
+
+    partsOfSpeech.push(resolved);
     etymologyNotes.push(...lemma.etymologyNotes);
   }
 
@@ -64,6 +73,7 @@ function parseForeignSource(term, wikitext, language) {
   return {
     term,
     language,
+    section,
     partsOfSpeech,
     etymologyNotes: parseEtymology(section)
   };
@@ -132,7 +142,7 @@ function parseFormOf(body) {
 
   const parts = match[1].split("|").map((part) => part.trim()).filter(Boolean);
   const template = parts.shift().toLowerCase();
-  const lemma = template === "es-verb form of" ? parts[0] : parts[1];
+  const lemma = /^[a-z-]+-verb form of$/.test(template) ? parts[0] : parts[1];
   if (!lemma) throw new Error(`Form-of template missing lemma: ${body}`);
 
   return { lemma, body };
@@ -175,6 +185,225 @@ async function alternateForms(title, searchedTerm, part, expandTemplates) {
     .map((item) => item.trim())
     .filter(Boolean)
     .filter((item) => !sameEndingTerm(item, searchedTerm));
+}
+
+async function conjugationChart(lemma, source, expandTemplates) {
+  const section = subsection(source, "Conjugation");
+  if (!section) throw new Error(`No conjugation section parsed for ${lemma}`);
+
+  const expanded = await expandTemplates(lemma, section);
+  const rows = parseWikiTableRows(expanded);
+  const chart = {
+    lemma,
+    nonfinite: parseNonfinite(rows),
+    tenses: parseFiniteTenses(rows)
+  };
+
+  if (!chart.tenses.length) throw new Error(`No indicative or subjunctive conjugation rows parsed for ${lemma}`);
+  return chart;
+}
+
+function subsection(section, name) {
+  const lines = section.split("\n");
+  const start = lines.findIndex((line) => {
+    const heading = line.trim().match(HEADING_RE);
+    return heading && cleanWikiText(heading[2]).toLowerCase() === name.toLowerCase();
+  });
+  if (start < 0) return "";
+
+  const level = lines[start].match(/^(=+)/)[1].length;
+  const end = lines.findIndex((line, index) => {
+    const heading = line.trim().match(HEADING_RE);
+    return index > start && heading && heading[1].length <= level;
+  });
+
+  return lines.slice(start + 1, end < 0 ? lines.length : end).join("\n").trim();
+}
+
+function parseWikiTableRows(wikitext) {
+  const rows = [];
+  let current = null;
+  let inTable = false;
+
+  for (const rawLine of wikitext.split("\n")) {
+    const line = rawLine.trim();
+    if (line.startsWith("{|")) {
+      inTable = true;
+      continue;
+    }
+    if (!inTable) continue;
+    if (line.startsWith("|}")) {
+      if (current?.length) rows.push(current);
+      break;
+    }
+    if (line.startsWith("|-")) {
+      if (current?.length) rows.push(current);
+      current = [];
+      continue;
+    }
+    if (!current || !/^[!|]/.test(line)) continue;
+    current.push(...parseWikiCells(line));
+  }
+
+  return rows.filter((row) => row.length);
+}
+
+function parseWikiCells(line) {
+  const kind = line[0] === "!" ? "header" : "cell";
+  const delimiter = kind === "header" ? "!!" : "||";
+  return line.slice(1)
+    .split(delimiter)
+    .map((segment) => parseWikiCell(kind, segment))
+    .filter((cell) => cell.text || cell.raw);
+}
+
+function parseWikiCell(kind, segment) {
+  const raw = segment.trim();
+  const content = cellContent(raw);
+  return {
+    kind,
+    raw,
+    content,
+    classes: cellClasses(raw),
+    text: cleanConjugationText(content)
+  };
+}
+
+function cellContent(raw) {
+  const hasCellAttributes = !raw.startsWith("<") && /\b(?:class|style|rowspan|colspan|align|scope|width|data-[\w-]+)=/i.test(raw);
+  if (!hasCellAttributes) return raw;
+
+  const separator = raw.indexOf("|");
+  return separator < 0 ? "" : raw.slice(separator + 1).trim();
+}
+
+function cellClasses(raw) {
+  const match = raw.match(/\bclass="([^"]+)"/i);
+  return match ? match[1].split(/\s+/) : [];
+}
+
+function parseNonfinite(rows) {
+  const items = [];
+  let pending = "";
+
+  for (const row of rows) {
+    const label = nonfiniteLabel(row.map((cell) => cell.text).join(" "));
+    const forms = row.filter((cell) => cell.kind === "cell").flatMap(formsFromCell);
+
+    if (label) {
+      pending = label;
+      if (forms.length) {
+        addNonfinite(items, label, forms[0]);
+        pending = "";
+      }
+      continue;
+    }
+
+    if (pending && forms.length) {
+      addNonfinite(items, pending, forms[0]);
+      pending = "";
+    }
+  }
+
+  return items;
+}
+
+function nonfiniteLabel(text) {
+  if (/\b(?:infinitive|infinitivo)\b/i.test(text)) return "Infinitive";
+  if (/\b(?:gerund|gerundio|gerúndio)\b/i.test(text)) return "Gerund";
+  if (/\b(?:past participle|participio|particípio)\b/i.test(text)) return "Past participle";
+  return "";
+}
+
+function addNonfinite(items, label, value) {
+  if (!value || items.some((item) => item.label === label)) return;
+  items.push({ label, value });
+}
+
+function parseFiniteTenses(rows) {
+  const tenses = [];
+  let mood = "";
+
+  for (const row of rows) {
+    const nextMood = moodFromRow(row);
+    if (nextMood) {
+      mood = nextMood;
+      continue;
+    }
+    if (!["indicative", "subjunctive"].includes(mood)) continue;
+
+    const forms = row.filter((cell) => cell.kind === "cell").map((cell) => formsFromCell(cell).join(", "));
+    if (forms.length !== 6 || forms.some((form) => !form)) continue;
+
+    const name = tenseName(row, mood);
+    if (!name) continue;
+
+    tenses.push({
+      mood,
+      name,
+      rows: [
+        { person: "1st", singular: forms[0], plural: forms[3] },
+        { person: "2nd", singular: forms[1], plural: forms[4] },
+        { person: "3rd", singular: forms[2], plural: forms[5] }
+      ]
+    });
+  }
+
+  return tenses;
+}
+
+function moodFromRow(row) {
+  const text = row.map((cell) => cell.text).join(" ").toLowerCase();
+  const classes = row.flatMap((cell) => cell.classes);
+  if (classes.includes("roa-imperative-left-rail") && /imperative|imperativo/.test(text)) return "imperative";
+  if (classes.includes("roa-indicative-left-rail") && /indicative|indicativo/.test(text)) return "indicative";
+  if (classes.includes("roa-subjunctive-left-rail") && /subjunctive|subjuntivo|conjunctive|conjuntivo/.test(text)) return "subjunctive";
+  return "";
+}
+
+function tenseName(row, mood) {
+  const moodClass = `roa-${mood}-left-rail`;
+  const header = row.find((cell) =>
+    cell.kind === "header" &&
+    (cell.classes.includes("roa-finite-header") || cell.classes.includes(moodClass)) &&
+    !moodFromRow([cell])
+  );
+  return header ? normalizeTenseName(header.text) : "";
+}
+
+function normalizeTenseName(value) {
+  return value
+    .replace(/\s*,\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function formsFromCell(cell) {
+  const linked = [...cell.content.matchAll(/\[\[:?([^|\]#]+)(?:#[^|\]]*)?\|([^\]]+)\]\]/g)]
+    .map((match) => cleanConjugationText(match[2]))
+    .filter(Boolean);
+  if (linked.length) return unique(linked);
+
+  const text = cleanConjugationText(cell.content);
+  return text ? [text] : [];
+}
+
+function cleanConjugationText(value) {
+  return String(value || "")
+    .replace(/<sup\b[^>]*>[\s\S]*?<\/sup>/gi, "")
+    .replace(/<\/?sup[^>]*>/gi, "")
+    .replace(/<br\s*\/?>/gi, ", ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#32;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/'''?/g, "")
+    .replace(/\[\[:?([^|\]#]+)(?:#[^|\]]*)?\|([^\]]+)\]\]/g, "$2")
+    .replace(/\[\[:?([^|\]#]+)(?:#[^\]]*)?\]\]/g, "$1")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function expandedText(value) {

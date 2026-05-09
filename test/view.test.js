@@ -30,7 +30,31 @@ test("Foreign result renders as one table with part headers", () => {
       language: "Spanish",
       partsOfSpeech: [
         { pos: "noun", formOf: { label: "plural of canta" }, definitions: ["song"], alternateForms: [] },
-        { pos: "verb", formOf: { label: "second-person singular of cantar" }, definitions: ["to sing"], alternateForms: ["canto"] }
+        {
+          pos: "verb",
+          formOf: { label: "second-person singular of cantar" },
+          definitions: ["to sing"],
+          alternateForms: ["canto"],
+          conjugation: {
+            lemma: "cantar",
+            nonfinite: [
+              { label: "Infinitive", value: "cantar" },
+              { label: "Gerund", value: "cantando" },
+              { label: "Past participle", value: "cantado" }
+            ],
+            tenses: [
+              {
+                mood: "indicative",
+                name: "present",
+                rows: [
+                  { person: "1st", singular: "canto", plural: "cantamos" },
+                  { person: "2nd", singular: "cantas, cantás", plural: "cantáis" },
+                  { person: "3rd", singular: "canta", plural: "cantan" }
+                ]
+              }
+            ]
+          }
+        }
       ],
       etymologyNotes: []
     },
@@ -44,6 +68,10 @@ test("Foreign result renders as one table with part headers", () => {
   assert.doesNotMatch(html, /<td>1<\/td>/);
   assert.match(html, /<td class="form-of">form: second-person singular of cantar<\/td>/);
   assert.match(html, /<td class="alternate-forms">alternate forms: canto<\/td>/);
+  assert.match(html, /<h2>Verb conjugation of cantar<\/h2>/);
+  assert.match(html, /<tr><th>Infinitive<\/th><td>cantar<\/td><\/tr>/);
+  assert.match(html, /<h3>Present Indicative<\/h3>/);
+  assert.match(html, /<tr><td>2nd<\/td><td>cantas, cantás<\/td><td>cantáis<\/td><\/tr>/);
   assert.match(html, /class="part-gap"/);
 });
 

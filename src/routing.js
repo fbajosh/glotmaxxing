@@ -23,23 +23,13 @@ export async function routeWord({ query, preferredLanguages, selectedLanguage, t
   const pageWikitext = lookup.wikitext;
 
   const englishPresence = classifyEnglish(englishSignals(pageWikitext));
+  const availableLanguages = preferredLanguages.filter((language) => hasLanguageSection(pageWikitext, language));
 
   if (!lookup.redirectedFrom && ENGLISH_RULES.routeToEnglish.has(englishPresence)) {
-    const mainTranslationGroups = parseEnglishTranslationGroups(pageWikitext);
-    const needsTranslationSubpage = hasEnglishTranslationSubpageReference(pageWikitext);
-    const translationSources = needsTranslationSubpage
-      ? [pageWikitext, await api.fetchWikitext(`${term}/translations`)]
-      : [pageWikitext];
-
-    return {
-      kind: "entry",
-      flow: "english",
-      englishPresence,
-      entry: parseEnglishEntry(term, pageWikitext, translationSources)
-    };
+    const englishResult = await routeEnglish(term, pageWikitext, englishPresence, api);
+    if (englishResult) return englishResult;
   }
 
-  const availableLanguages = preferredLanguages.filter((language) => hasLanguageSection(pageWikitext, language));
   if (selectedLanguage && !availableLanguages.includes(selectedLanguage)) {
     throw new Error(`${selectedLanguage} section not available for ${term}`);
   }
@@ -59,6 +49,39 @@ export async function routeWord({ query, preferredLanguages, selectedLanguage, t
     availableLanguages,
     nextLanguage: availableLanguages[availableLanguages.indexOf(selected) + 1] || ""
   };
+}
+
+async function routeEnglish(term, pageWikitext, englishPresence, api) {
+  try {
+    parseEnglishTranslationGroups(pageWikitext);
+    const needsTranslationSubpage = hasEnglishTranslationSubpageReference(pageWikitext);
+    const translationSources = needsTranslationSubpage
+      ? [pageWikitext, await fetchTranslationSubpage(term, api)]
+      : [pageWikitext];
+
+    return {
+      kind: "entry",
+      flow: "english",
+      englishPresence,
+      entry: parseEnglishEntry(term, pageWikitext, translationSources)
+    };
+  } catch (error) {
+    if (isNoSenseTranslations(error, term)) return null;
+    throw error;
+  }
+}
+
+async function fetchTranslationSubpage(term, api) {
+  try {
+    return await api.fetchWikitext(`${term}/translations`);
+  } catch (error) {
+    if (isMissingTitle(error)) throw new Error(`No sense-level translations parsed for ${term}`);
+    throw error;
+  }
+}
+
+function isNoSenseTranslations(error, term) {
+  return error?.message === `No sense-level translations parsed for ${term}`;
 }
 
 async function lookupWikitext(term, preferredLanguages, api) {

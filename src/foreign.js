@@ -8,6 +8,7 @@ export function foreignView(result) {
       ${result.notice ? `<p class="notice">${esc(result.notice)}</p>` : ""}
       ${redirectedFrom(result.entry)}
       ${partsTable(result.entry.partsOfSpeech)}
+      ${conjugationTables(result.entry)}
       ${etymology(result.entry)}
       ${nextLanguage(result.nextLanguage)}
     </article>
@@ -50,6 +51,59 @@ function definitions(part) {
 function redirectedFrom(entry) {
   if (!entry.redirectedFrom) return "";
   return `<p class="redirected-from">redirected from ${differenceText(entry.redirectedFrom, entry.term)}</p>`;
+}
+
+function conjugationTables(entry) {
+  const charts = entry.partsOfSpeech?.map((part) => part.conjugation).filter(Boolean) || [];
+  if (!charts.length) return "";
+
+  return charts.map((chart) => `
+    <section class="entry-section conjugation-section">
+      <h2>Verb conjugation of ${esc(chart.lemma)}</h2>
+      ${nonfiniteTable(chart)}
+      ${chart.tenses.map(tenseTable).join("")}
+    </section>
+  `).join("");
+}
+
+function nonfiniteTable(chart) {
+  if (!chart.nonfinite?.length) return "";
+  return `
+    <table class="conjugation-table conjugation-summary">
+      <tbody>
+        ${chart.nonfinite.map((item) => `
+          <tr><th>${esc(item.label)}</th><td>${esc(item.value)}</td></tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function tenseTable(tense) {
+  return `
+    <h3>${esc(tenseTitle(tense))}</h3>
+    <table class="conjugation-table">
+      <thead>
+        <tr><th>Person</th><th>Singular</th><th>Plural</th></tr>
+      </thead>
+      <tbody>
+        ${tense.rows.map((row) => `
+          <tr><td>${esc(row.person)}</td><td>${esc(row.singular)}</td><td>${esc(row.plural)}</td></tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function tenseTitle(tense) {
+  return `${titleOutsideParentheses(tense.name)} ${title(tense.mood)}`;
+}
+
+function titleOutsideParentheses(value) {
+  return String(value || "")
+    .split(/(\([^)]*\))/)
+    .map((part) => part.startsWith("(") ? part : title(part))
+    .join("");
 }
 
 function differenceText(source, target) {

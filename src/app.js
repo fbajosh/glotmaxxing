@@ -304,7 +304,9 @@ function noPageView(term) {
 function settingsView() {
   return `
     <div class="drawer">
+      <section class="drawer-section">
       <button class="close" type="button" data-action="close" aria-label="Close">&times;</button>
+      </section>
       <section class="drawer-section">
         <h2>Theme</h2>
       <label class="theme-toggle">

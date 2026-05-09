@@ -8,7 +8,7 @@
   --button-text: #22423c;
   --link: #008080;
   --header-bg: #17211f;
-  --header-text: #cbd7d1;
+  --header-text: #f4f7f5;
   --notice: #b95c37;
   --notice-bg: rgba(185, 92, 55, 0.1);
   --shadow: rgba(0, 0, 0, 0.12);
@@ -462,6 +462,33 @@ td {
 .etymology p {
   margin: 0 0 10px;
   line-height: 1.5;
+}
+
+.conjugation-section h3 {
+  margin: 22px 0 0;
+}
+
+.conjugation-table {
+  table-layout: fixed;
+  margin-top: 8px;
+}
+
+.conjugation-table th,
+.conjugation-table td {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.conjugation-summary th {
+  width: 0;
+  color: var(--text);
+  background: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.conjugation-summary {
+  table-layout: auto;
 }
 
 .about-page p {
