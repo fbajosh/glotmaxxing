@@ -15,6 +15,10 @@ export function aboutView() {
         <h2>Data</h2>
         <p>Dictionary data comes from <a href="https://www.wiktionary.org/" target="_blank" rel="noopener noreferrer">Wiktionary</a>. Language order and theme settings are stored locally in this browser.</p>
       </section>
+
+      <section class="entry-section">
+        <p>v0.1</p>
+      </section>
     </article>
   `;
 }
