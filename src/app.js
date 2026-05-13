@@ -133,9 +133,18 @@ function showPage(page) {
 function render() {
   applyTheme();
   app.innerHTML = state.page === "about" ? pageView(aboutPageView()) : state.query ? wordView() : splashShell();
+  focusEditingLanguage();
   syncSplashHero(app).catch((failure) => {
     throw failure;
   });
+}
+
+function focusEditingLanguage() {
+  if (state.editing === null) return;
+  const input = app.querySelector(`form[data-role="language"][data-slot="${state.editing}"] input[name="language"]`);
+  if (!input) return;
+  input.focus();
+  input.select();
 }
 
 function applyTheme() {
