@@ -1,9 +1,11 @@
 import { aboutView } from "./about.js";
 import { SUPPORTED_LANGUAGES } from "./data.js";
 import { englishTarget, englishView } from "./english.js";
+import { appendErrorLogEntry, clearErrorLog, errorLogView, loadErrorLog } from "./error-log.js";
 import { errorView } from "./error.js";
 import { foreignView } from "./foreign.js";
 import { searchBar, settingsButton, esc } from "./html.js";
+import { normalizeQuery, queryFromParams } from "./query.js";
 import { routeWord } from "./routing.js";
 import { splashView, syncSplashHero } from "./splash.js";
 import { APP_VERSION } from "./version.js";
@@ -15,12 +17,17 @@ const params = new URLSearchParams(location.search);
 const app = document.querySelector("#app");
 let dragState = null;
 let suppressClick = false;
-const state = {
+let state = null;
+
+installGlobalErrorLogging();
+
+const initialPage = pageFrom(params);
+state = {
   settings: loadSettings(),
-  page: pageFrom(params),
-  query: pageFrom(params) ? "" : params.get("q") || "",
-  selectedLanguage: pageFrom(params) ? "" : params.get("tl") || "",
-  resultLanguage: pageFrom(params) ? "" : params.get("rl") || "",
+  page: initialPage,
+  query: initialPage ? "" : queryFromParams(params),
+  selectedLanguage: initialPage ? "" : params.get("tl") || "",
+  resultLanguage: initialPage ? "" : params.get("rl") || "",
   lookup: null,
   serverVersion: null,
   recacheFailure: null,
@@ -93,15 +100,93 @@ function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
 }
 
-function pageFrom(urlParams) {
-  const page = urlParams.get("page") || "";
+function pageFrom(urlParams, pathname = location.pathname) {
+  const pathPage = pathname.replace(/\/+$/, "").split("/").pop() === "errorlog" ? "errorlog" : "";
+  const page = pathPage || urlParams.get("page") || "";
   if (!page) return "";
-  if (page !== "about") throw new Error(`Unsupported page: ${page}`);
+  if (page !== "about" && page !== "errorlog") throw new Error(`Unsupported page: ${page}`);
   return page;
 }
 
+function pageUrl(page) {
+  if (page === "about") return `${appHomePath()}?page=about`;
+  if (page === "errorlog") return `${appHomePath().replace(/\/?$/, "/")}errorlog`;
+  throw new Error(`Unsupported page: ${page}`);
+}
+
+function appHomePath() {
+  const withoutErrorLog = location.pathname.replace(/\/errorlog\/?$/, "/");
+  if (withoutErrorLog.endsWith("/index.html")) {
+    return withoutErrorLog.slice(0, -"index.html".length) || "/";
+  }
+  return withoutErrorLog || "/";
+}
+
+function installGlobalErrorLogging() {
+  addEventListener("error", (event) => {
+    logPageError({ description: "runtime error", error: event.error || event.message });
+  });
+
+  addEventListener("unhandledrejection", (event) => {
+    logPageError({ description: "unhandled promise rejection", error: event.reason });
+  });
+}
+
+function logPageError({ description, error }) {
+  if (alreadyLogged(error)) return;
+  markLogged(error);
+  appendErrorLogEntry({ description, error, context: currentErrorContext() });
+}
+
+function alreadyLogged(error) {
+  return Boolean(error && typeof error === "object" && error.__glotmaxxingLogged);
+}
+
+function markLogged(error) {
+  if (!error || typeof error !== "object") return;
+
+  try {
+    Object.defineProperty(error, "__glotmaxxingLogged", { value: true });
+  } catch {
+    // Best-effort duplicate prevention only.
+  }
+}
+
+function currentErrorContext() {
+  const currentParams = new URLSearchParams(location.search);
+  const currentPage = safePageFrom(currentParams);
+
+  return {
+    appVersion: APP_VERSION,
+    url: location.href,
+    page: state?.page ?? currentPage,
+    query: state?.query ?? (currentPage ? "" : queryFromParams(currentParams)),
+    selectedLanguage: state?.selectedLanguage ?? (currentPage ? "" : currentParams.get("tl") || ""),
+    resultLanguage: state?.resultLanguage ?? (currentPage ? "" : currentParams.get("rl") || ""),
+    settings: settingsForLog()
+  };
+}
+
+function safePageFrom(urlParams) {
+  try {
+    return pageFrom(urlParams);
+  } catch {
+    return "";
+  }
+}
+
+function settingsForLog() {
+  if (state?.settings) return state.settings;
+
+  try {
+    return loadSettings();
+  } catch (error) {
+    return { loadFailure: error.message || String(error) };
+  }
+}
+
 function go(query, selectedLanguage = "", resultLanguage = "") {
-  const next = String(query || "").trim();
+  const next = normalizeQuery(query);
   if (!next) return;
   state.page = "";
   state.query = next;
@@ -113,12 +198,12 @@ function go(query, selectedLanguage = "", resultLanguage = "") {
   const nextParams = new URLSearchParams({ q: next });
   if (selectedLanguage) nextParams.set("tl", selectedLanguage);
   if (resultLanguage) nextParams.set("rl", resultLanguage);
-  history.pushState({}, "", `${location.pathname}?${nextParams.toString()}`);
+  history.pushState({}, "", `${appHomePath()}?${nextParams.toString()}`);
   render();
 }
 
 function showPage(page) {
-  if (page !== "about") throw new Error(`Unsupported page: ${page}`);
+  if (page !== "about" && page !== "errorlog") throw new Error(`Unsupported page: ${page}`);
   state.page = page;
   state.query = "";
   state.selectedLanguage = "";
@@ -126,15 +211,22 @@ function showPage(page) {
   state.lookup = null;
   state.settingsOpen = false;
   state.editing = null;
-  history.pushState({}, "", `${location.pathname}?page=${page}`);
+  history.pushState({}, "", pageUrl(page));
   render();
 }
 
 function render() {
   applyTheme();
-  app.innerHTML = state.page === "about" ? pageView(aboutPageView()) : state.query ? wordView() : splashShell();
+  app.innerHTML = state.page === "about"
+    ? pageView(aboutPageView())
+    : state.page === "errorlog"
+      ? pageView(errorLogPageView())
+      : state.query
+        ? wordView()
+        : splashShell();
   focusEditingLanguage();
   syncSplashHero(app).catch((failure) => {
+    logPageError({ description: "hero image sync failed", error: failure });
     throw failure;
   });
 }
@@ -237,6 +329,7 @@ function startLookup(key) {
     render();
   }, (failure) => {
     if (state.lookup?.key !== key) return;
+    logPageError({ description: "lookup failed", error: failure });
     state.lookup = { key, loading: false, result: null, failure };
     render();
   });
@@ -264,6 +357,7 @@ function ensureServerVersion() {
       };
       if (state.page === "about") render();
     }, (failure) => {
+      logPageError({ description: "version check failed", error: failure });
       state.serverVersion = { loading: false, version: "", deployedAt: "", failure };
       if (state.page === "about") render();
     });
@@ -327,6 +421,10 @@ function failureView(query, failure) {
   `;
 }
 
+function errorLogPageView() {
+  return errorLogView(loadErrorLog());
+}
+
 function noPageView(term) {
   return `<article><h1>${esc(term)}</h1><p class="notice">No page exists in preferred languages.</p></article>`;
 }
@@ -352,7 +450,8 @@ function settingsView() {
       <section class="drawer-section glotmaxxing-section">
         <h2>Glotmaxxing</h2>
         <nav class="drawer-links" aria-label="Glotmaxxing">
-          <a href="?page=about" data-action="about">About</a>
+          <a href="${esc(pageUrl("about"))}" data-action="about">About</a>
+          <a href="${esc(pageUrl("errorlog"))}" data-action="error-log">Error log</a>
           <a href="https://www.wiktionary.org/" target="_blank" rel="noopener noreferrer">Wiktionary</a>
           <a href="https://github.com/fbajosh/glotmaxxing" target="_blank" rel="noopener noreferrer">Git</a>
         </nav>
@@ -496,12 +595,21 @@ app.addEventListener("click", (event) => {
     event.preventDefault();
     showPage("about");
     return;
+  } else if (control.dataset.action === "error-log") {
+    event.preventDefault();
+    showPage("errorlog");
+    return;
   } else if (control.dataset.action === "force-recache") {
     event.preventDefault();
     forceRecache().catch((failure) => {
+      logPageError({ description: "force recache failed", error: failure });
       state.recacheFailure = failure;
       render();
     });
+    return;
+  } else if (control.dataset.action === "clear-error-log") {
+    clearErrorLog();
+    render();
     return;
   } else if (control.dataset.action === "dark-mode") {
     state.settings.darkMode = control.checked;
@@ -573,8 +681,9 @@ app.addEventListener("pointercancel", (event) => {
 addEventListener("popstate", () => {
   const nextParams = new URLSearchParams(location.search);
   state.page = pageFrom(nextParams);
-  state.query = state.page ? "" : nextParams.get("q") || "";
+  state.query = state.page ? "" : queryFromParams(nextParams);
   state.selectedLanguage = state.page ? "" : nextParams.get("tl") || "";
+  state.resultLanguage = state.page ? "" : nextParams.get("rl") || "";
   state.lookup = null;
   state.settingsOpen = false;
   state.editing = null;

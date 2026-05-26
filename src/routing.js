@@ -1,5 +1,6 @@
 import { englishSignals, hasEnglishTranslationSubpageReference, parseEnglishEntry, parseEnglishTranslationGroups } from "./english-parser.js";
 import { resolveForeignEntry } from "./foreign-parser.js";
+import { normalizeQuery } from "./query.js";
 import { expandTemplates, fetchWikitext, hasLanguageSection, isMissingTitle, searchTitles } from "./wiktionary.js";
 
 export const ENGLISH_RULES = {
@@ -17,7 +18,7 @@ export function classifyEnglish(signals) {
 
 export async function routeWord({ query, preferredLanguages, selectedLanguage, resultLanguage, tools = {} }) {
   const api = { fetchWikitext, expandTemplates, searchTitles, ...tools };
-  const requestedTerm = query.trim();
+  const requestedTerm = normalizeQuery(query);
   const lookup = await lookupWikitext(requestedTerm, preferredLanguages, api);
   const term = lookup.term;
   const pageWikitext = lookup.wikitext;

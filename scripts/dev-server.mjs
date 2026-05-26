@@ -24,6 +24,11 @@ function fileFor(url) {
   return file.startsWith(root) ? file : null;
 }
 
+function isClientRoute(url) {
+  const path = normalize(decodeURIComponent(new URL(url, "http://localhost").pathname));
+  return path.replace(/\/+$/, "").endsWith("/errorlog");
+}
+
 function server() {
   return createServer(async (request, response) => {
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -37,12 +42,24 @@ function server() {
       return;
     }
 
-    const info = await stat(file).catch((error) => {
-      response.writeHead(error.code === "ENOENT" ? 404 : 500, { "content-type": "text/plain; charset=utf-8" });
-      response.end(error.message);
+    let statError = null;
+    let info = await stat(file).catch((error) => {
+      statError = error;
       return null;
     });
-    if (!info) return;
+    if (!info && isClientRoute(request.url)) {
+      file = join(root, "index.html");
+      info = await stat(file).catch((error) => {
+        statError = error;
+        return null;
+      });
+    }
+
+    if (!info) {
+      response.writeHead(statError?.code === "ENOENT" ? 404 : 500, { "content-type": "text/plain; charset=utf-8" });
+      response.end(statError?.message || "Not found");
+      return;
+    }
 
     if (info.isDirectory()) {
       file = join(file, "index.html");

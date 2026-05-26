@@ -528,6 +528,47 @@ td {
   line-height: 1.55;
 }
 
+.error-log-page {
+  display: grid;
+  gap: 14px;
+}
+
+.error-log-count {
+  margin: 0;
+  color: var(--muted);
+}
+
+.error-log-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.error-log-actions a,
+.error-log-actions button {
+  display: inline-grid;
+  min-height: 38px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--button-text);
+  background: var(--panel);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.error-log-json {
+  max-height: 62vh;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 560px) {
   .splash h1,
   .word h1 { font-size: 3rem; }
